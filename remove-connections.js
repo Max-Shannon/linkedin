@@ -2,8 +2,9 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+require('dotenv').config();
 
-const LINKEDIN_EMAIL = 'LINKEDIN_EMAIL_REDACTED';
+const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const INPUT_CSV = path.join(__dirname, 'sales-connections.csv');
 const RESULT_FILE = path.join(__dirname, 'remove-connections-results.json');
 const REMOVE_STATE_FILE = path.join(__dirname, 'remove-connections-state.json');
@@ -511,6 +512,12 @@ async function removeConnection(page, vanityName) {
 }
 
 async function main() {
+  if (!LINKEDIN_EMAIL) {
+    console.error('Error: LINKEDIN_EMAIL environment variable is not set.');
+    console.error('Copy .env.example to .env and add your LinkedIn email.');
+    process.exit(1);
+  }
+
   const args = parseArgs(process.argv);
 
   let removeState = args.fresh ? buildEmptyRemoveState() : loadRemoveState();

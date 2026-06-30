@@ -1,8 +1,9 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
+require('dotenv').config();
 
-const LINKEDIN_EMAIL = 'LINKEDIN_EMAIL_REDACTED';
+const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const SEARCH_URL_BASE = 'https://www.linkedin.com/search/results/people/';
 const REQUEST_DELAY_MS = 2000;
 const CSV_FLUSH_INTERVAL = 500;
@@ -1303,6 +1304,12 @@ async function ensureLoggedIn(page) {
 }
 
 async function main() {
+  if (!LINKEDIN_EMAIL) {
+    console.error('Error: LINKEDIN_EMAIL environment variable is not set.');
+    console.error('Copy .env.example to .env and add your LinkedIn email.');
+    process.exit(1);
+  }
+
   const headless = process.env.HEADLESS === 'true';
   const args = new Set(process.argv.slice(2));
   const runtime = resolveResumeState({
