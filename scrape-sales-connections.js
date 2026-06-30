@@ -87,10 +87,13 @@ function matchesSalesKeyword(connection) {
     /\bbd\b/,
     /\bbdr\b/,
     /\bsdr\b/,
+    /\bmdr\b/,
     /\baccount executive\b/,
     /\baccount manager\b/,
+    /\baccount representative\b/,
     /\bnew business\b/,
     /\binside sales\b/,
+    /\boutside sales\b/,
     /\bfield sales\b/,
     /\boutbound\b/,
     /\binbound\b/,
@@ -98,20 +101,79 @@ function matchesSalesKeyword(connection) {
     /\bpartnerships?\b/,
     /\bcommercial\b/,
     /\bgtm\b/,
+    /\bpre-?sales\b/,
+    /\benterprise sales\b/,
+    /\bchannel sales\b/,
+    /\bchannel manager\b/,
+    /\bterritory manager\b/,
+    /\bkey account\b/,
+    /\bstrategic account\b/,
+    /\bnational sales\b/,
+    /\bregional sales\b/,
+    /\bsales lead\b/,
+    /\bclient partner\b/,
+    /\bpartner manager\b/,
+    /\bsolutions consultant\b/,
+    /\bcloser\b/,
+    /\blead generation\b/,
+    /\bappointment setter\b/,
+    /\bmarket development\b/,
+    /\bclient advisor\b/,
+    /\brevenue operations\b/,
+    /\brevops\b/,
   ];
 
   const salesRoleTitles = [
     'chief revenue officer',
+    'chief sales officer',
     'cro',
+    'cso',
     'head of revenue',
     'head of growth',
+    'head of sales',
     'vp revenue',
     'vp growth',
+    'vp sales',
+    'vp of sales',
+    'svp of sales',
+    'svp sales',
+    'vp business development',
+    'vp of business development',
+    'vp of account management',
+    'director of sales',
+    'sales director',
+    'sales manager',
+    'sales development representative',
+    'market development representative',
+    'lead generation specialist',
+    'lead generation manager',
+    'business development manager',
+    'business development director',
+    'business development executive',
+    'business development representative',
+    'head of business development',
+    'enterprise account executive',
+    'strategic account manager',
+    'key account manager',
+    'national sales manager',
+    'territory manager',
+    'commercial director',
+    'commercial manager',
+    'client director',
+    'partner manager',
+    'channel sales manager',
     'revenue operations',
+    'revenue operations manager',
     'sales operations',
+    'sales operations manager',
     'sales enablement',
     'growth manager',
     'growth lead',
+    'sales team lead',
+    'sales development manager',
+    'outside sales representative',
+    'inside sales representative',
+    'account representative',
   ];
 
   if (salesRoleTitles.some((title) => searchable.includes(title))) {
@@ -127,23 +189,64 @@ function matchesRecruitmentKeyword(connection) {
 
   const recruitmentPatterns = [
     /\brecruit\w*\b/,
+    /\brecruiting\b/,
     /\btalent acquisition\b/,
     /\bta specialist\b/,
+    /\bta partner\b/,
+    /\bta manager\b/,
+    /\bta advisor\b/,
     /\bstaffing\b/,
     /\bsourcer\b/,
     /\bheadhunt\w*\b/,
     /\bresourcing\b/,
+    /\bpeople partner\b/,
+    /\bsearch consultant\b/,
+    /\bplacement consultant\b/,
+    /\bemployment specialist\b/,
+    /\btalent scout\b/,
+    /\btalent researcher\b/,
+    /\brecops\b/,
   ];
 
   const recruitmentTitles = [
     'recruitment consultant',
     'recruitment manager',
+    'recruiting coordinator',
+    'recruiting manager',
+    'recruiting specialist',
+    'recruiting lead',
+    'recruiting operations',
     'technical recruiter',
     'executive recruiter',
+    'corporate recruiter',
+    'campus recruiter',
+    'contract recruiter',
     'talent partner',
+    'talent acquisition partner',
+    'senior talent acquisition partner',
+    'talent acquisition advisor',
     'talent acquisition manager',
+    'talent acquisition coordinator',
+    'talent acquisition specialist',
+    'talent acquisition lead',
+    'talent acquisition analyst',
+    'talent acquisition recruiter',
+    'talent consultant',
+    'talent researcher',
     'head of recruitment',
     'head of talent acquisition',
+    'head of talent',
+    'director of talent acquisition',
+    'director of recruiting',
+    'vp talent acquisition',
+    'vp of talent acquisition',
+    'hr recruiter',
+    'human resources recruiter',
+    'placement consultant',
+    'headhunter',
+    'dei recruiter',
+    'diversity recruiter',
+    'team lead recruiter',
   ];
 
   if (recruitmentTitles.some((title) => searchable.includes(title))) {
@@ -521,24 +624,32 @@ async function extractPeopleFromPage(page) {
     function extractNameFromAnchor(anchor) {
       let name = '';
 
-      for (const child of anchor.childNodes) {
-        if (child.nodeType === Node.TEXT_NODE) {
-          name += child.textContent;
-          continue;
-        }
+      // New LinkedIn DOM: anchor wraps a div/p structure — pull name from first <p>
+      const innerP = anchor.querySelector('p');
+      if (innerP) {
+        name = normalize(innerP.textContent);
+      } else {
+        // Legacy DOM: anchor contains direct text nodes and spans
+        for (const child of anchor.childNodes) {
+          if (child.nodeType === Node.TEXT_NODE) {
+            name += child.textContent;
+            continue;
+          }
 
-        if (child.nodeType !== Node.ELEMENT_NODE || child.tagName !== 'SPAN') {
-          continue;
-        }
+          if (child.nodeType !== Node.ELEMENT_NODE || child.tagName !== 'SPAN') {
+            continue;
+          }
 
-        const isDecorative =
-          child.querySelector('svg') || child.getAttribute('role') === 'img';
-        if (!isDecorative) {
-          name += child.textContent;
+          const isDecorative =
+            child.querySelector('svg') || child.getAttribute('role') === 'img';
+          if (!isDecorative) {
+            name += child.textContent;
+          }
         }
+        name = normalize(name);
       }
 
-      return normalize(name)
+      return name
         .replace(/^Status is (online|offline)\.?\s*/i, '')
         .replace(/'?s profile$/i, '')
         .replace(/\s*[•·].*$/, '')
@@ -554,6 +665,23 @@ async function extractPeopleFromPage(page) {
         return false;
       }
 
+      // New LinkedIn DOM: anchor wraps <div><p>Name</p>...</div>
+      // The anchor itself is not inside a <p>; instead it contains one.
+      const innerP = anchor.querySelector('p');
+      if (innerP) {
+        const innerText = normalize(innerP.textContent);
+        if (/mutual connection|shared connection|other mutual/i.test(innerText)) {
+          return false;
+        }
+        // Valid if anchor is not inside a mutual-connections paragraph
+        const outerP = anchor.closest('p');
+        if (outerP && /mutual connection|shared connection|other mutual/i.test(normalize(outerP.textContent))) {
+          return false;
+        }
+        return extractNameFromAnchor(anchor).length > 1;
+      }
+
+      // Legacy DOM: anchor is inside a <p>
       const paragraph = anchor.closest('p');
       if (!paragraph) {
         return false;
@@ -736,7 +864,23 @@ async function extractPeopleFromPage(page) {
       let headline = '';
       let currentRole = '';
 
+      // Find the name anchor so we can skip paragraphs nested inside it
+      // (in new LinkedIn DOM the name <p> lives inside the anchor)
+      const nameAnchor = card.querySelector(`a[href*="${handle}"]`);
+
       for (const paragraph of card.querySelectorAll('p')) {
+        // Skip the name paragraph that lives inside the profile link anchor
+        if (nameAnchor && nameAnchor.contains(paragraph)) {
+          const pText = normalize(paragraph.textContent);
+          // If this inner paragraph is the headline (not the name), capture it
+          if (pText && pText !== name && !pText.startsWith(`${name} `)) {
+            if (!headline && !/mutual connection|shared connection|other mutual/i.test(pText)) {
+              headline = pText;
+            }
+          }
+          continue;
+        }
+
         const text = normalize(paragraph.textContent);
         if (!text) {
           continue;
@@ -755,6 +899,9 @@ async function extractPeopleFromPage(page) {
           continue;
         }
         if (/^[•·]\s*(?:1st|2nd|3rd)/i.test(text)) {
+          continue;
+        }
+        if (/^Connected on /i.test(text)) {
           continue;
         }
         if (!headline && text !== name && !text.startsWith(`${name} `)) {
