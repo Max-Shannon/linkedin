@@ -66,6 +66,7 @@ Opens a browser window, logs in to LinkedIn, and paginates through your connecti
 ```bash
 npm run connections:download:status   # show download progress
 npm run connections:download:fresh    # reset download state and CSV
+node download-connections.js --resume # continue if wrongly marked complete
 ```
 
 `connections.csv` columns:
