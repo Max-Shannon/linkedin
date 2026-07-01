@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "network": "linkedin",
+    "profileUrl": "https://www.linkedin.com/in/bhealy/",
+    "vanityName": "bhealy",
+    "scrapedAt": "2026-07-01T12:00:00.000Z",
+    "scrapeDurationMs": 42000
+  },
+  "identity": {
+    "publicIdentifier": "bhealy",
+    "fullName": "Brendan Healy",
+    "firstName": "Brendan",
+    "lastName": "Healy",
+    "headline": "Engineering leader · Building systems that scale",
+    "summary": "Experienced technology leader focused on aviation, data platforms, and developer tooling. Passionate about local-first software and clean operational systems.",
+    "location": "Dublin, Ireland",
+    "industry": "Aviation & Aerospace",
+    "profilePhotoUrl": null
+  },
+  "stats": {
+    "connections": 5723,
+    "followers": 1840
+  },
+  "contact": {
+    "email": null,
+    "phoneNumbers": [],
+    "websites": ["https://example.com"],
+    "twitterHandles": [],
+    "ims": [],
+    "address": null,
+    "birthday": null
+  },
+  "experience": [
+    {
+      "title": "Chief Technology Officer",
+      "companyName": "Manna Drone Delivery",
+      "employmentType": "Full-time",
+      "location": "Dublin, Ireland",
+      "description": "Leading engineering, data, and platform teams.",
+      "dateRange": { "text": "Jan 2019 – Present" }
+    },
+    {
+      "title": "Software Architect",
+      "companyName": "Previous Co",
+      "location": "Remote",
+      "dateRange": { "text": "2014 – 2018" }
+    }
+  ],
+  "education": [
+    {
+      "schoolName": "Trinity College Dublin",
+      "degreeName": "BSc",
+      "fieldOfStudy": "Computer Science",
+      "dateRange": { "text": "2008 – 2012" }
+    }
+  ],
+  "skills": [
+    { "name": "JavaScript", "endorsementCount": 42 },
+    { "name": "PostgreSQL", "endorsementCount": 28 },
+    { "name": "Distributed Systems", "endorsementCount": 15 }
+  ],
+  "certifications": [],
+  "languages": [{ "name": "English", "proficiency": "Native" }],
+  "projects": [],
+  "volunteering": [],
+  "publications": [],
+  "patents": [],
+  "courses": [],
+  "honors": [],
+  "organizations": [],
+  "recommendations": {
+    "received": [
+      {
+        "text": "One of the most thoughtful engineering leaders I've worked with.",
+        "recommender": "Jane Smith",
+        "relationship": "Colleague"
+      }
+    ],
+    "given": []
+  },
+  "interests": [],
+  "featured": [],
+  "meta": { "ldJson": [], "openGraph": {} },
+  "provenance": { "voyagerResponses": [], "domSections": [], "networkCaptures": 0 }
+}

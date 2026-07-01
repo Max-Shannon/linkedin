@@ -203,3 +203,33 @@ Default ignored companies: **Manna**, **Meili** (colleagues). Add more with `--i
 - Removals are spaced ~1.2 seconds apart to avoid rate limiting
 - The people-search scraper supports both old and new LinkedIn search result DOM layouts
 - Never commit `.env`, CSV exports, analytics HTML, or browser session data — see `.cursor/rules/no-sensitive-git-commits.mdc`
+
+### 5. Scrape an individual profile
+
+Export a single LinkedIn profile to structured JSON for cross-network portability:
+
+```bash
+npm run profile:scrape -- https://www.linkedin.com/in/bhealy/
+npm run profile:scrape -- --vanity bhealy
+node scrape-profile.js --skip-details    # ~35s: main page + API only
+node scrape-profile.js --full-details    # ~2min: all 12 detail sub-pages
+```
+
+**Speed:** The default now visits **3 detail pages** (experience, education, skills) plus batched API calls (~30–45s). The previous behaviour visited **12 detail pages** with a **1.5s delay** before each step, which is why a full run took ~2.5 minutes. Use `--full-details` only if you need every section archived to `dom/`.
+
+| Path | Contents |
+|---|---|
+| `profile.json` | Normalized profile (identity, experience, education, skills, etc.) |
+| `profile.html` | Self-contained visual profile page — open in any browser |
+| `manifest.json` | Scrape metadata and section counts |
+| `raw/` | Raw Voyager API responses |
+| `dom/` | DOM snapshots from main and detail pages |
+
+The scraper uses your saved LinkedIn session, fetches Voyager API data, and visits detail sub-pages (experience, education, skills by default). `profiles/` is gitignored.
+
+Regenerate the HTML page from an existing export:
+
+```bash
+npm run profile:html:open
+node generate-profile-html.js profiles/bhealy/profile.json --open
+```

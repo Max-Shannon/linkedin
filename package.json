@@ -13,6 +13,9 @@
     "connections:analytics": "node generate-connections-analytics.js",
     "connections:analytics:open": "node generate-connections-analytics.js --open",
     "connections:remove": "node remove-connections.js",
+    "profile:scrape": "node scrape-profile.js",
+    "profile:html": "node generate-profile-html.js",
+    "profile:html:open": "node generate-profile-html.js --open",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -1,6 +1,8 @@
 node_modules/
 .env
 *.csv
+profiles/
+test/fixtures/*.html
 scrape-state.json
 remove-connections-state.json
 remove-connections-results.json
