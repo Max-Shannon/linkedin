@@ -1,15 +1,17 @@
 # LinkedIn Connection Cleaner
 
-A Node.js tool to scrape your 1st-degree LinkedIn connections, classify them by job title (sales, recruitment, or neither), and bulk-remove the ones you don't want.
+A Node.js tool to download your 1st-degree LinkedIn connections, classify them by job title (sales, recruitment, or neither), and bulk-remove the ones you don't want.
 
 ---
 
 ## Features
 
-- Scrapes 1st-degree connections via LinkedIn people search using a keyword × geography grid
+- Downloads your full connections list via LinkedIn's connections-page pagination API
+- Generates a local analytics dashboard with charts, role breakdown, and searchable contact table
+- Scrapes 1st-degree connections via LinkedIn people search using a keyword × geography grid (for title-based discovery)
 - Classifies each connection as `sales`, `recruitment`, `sales_and_recruitment`, or `not_target`
 - Exports results to CSV with name, title, profile URL, and status
-- Resumes interrupted scrapes automatically — no data lost
+- Resumes interrupted downloads/scrapes automatically — no data lost
 - Bulk-removes connections by status, with dry-run mode before anything is deleted
 - Tracks removed profiles so they're skipped on future runs
 - Ignores connections at specified companies (e.g. colleagues)
@@ -40,22 +42,86 @@ LINKEDIN_EMAIL=you@example.com
 
 ---
 
+## Recommended workflow
+
+```bash
+npm run connections:download          # 1. Export your network to connections.csv
+npm run connections:analytics:open    # 2. Explore the analytics dashboard
+npm run scrape:sales                  # 3. (Optional) Classify sales/recruitment via people search
+npm run connections:remove -- --status spam --limit 20   # 4. Dry-run removals
+```
+
+---
+
 ## Usage
 
-### 1. Scrape connections
+### 1. Download your connections list
+
+```bash
+npm run connections:download
+```
+
+Opens a browser window, logs in to LinkedIn, and paginates through your connections list using LinkedIn's SDUI pagination API. Results are written to `connections.csv` after every batch. Progress is saved to `download-connections-state.json` so you can stop and resume at any time.
+
+```bash
+npm run connections:download:status   # show download progress
+npm run connections:download:fresh    # reset download state and CSV
+```
+
+`connections.csv` columns:
+
+| Column | Description |
+|---|---|
+| `name` | Full name |
+| `title` | LinkedIn headline |
+| `profile_url` | LinkedIn profile URL |
+| `vanity_name` | Profile slug (used for removal) |
+| `connected_on` | Connection date as shown on LinkedIn |
+
+The downloader stops after **5,000 contacts**. Pagination requests are spaced with a **random 1–10 second delay** to reduce rate-limit risk.
+
+### 2. Generate analytics dashboard
+
+```bash
+npm run connections:analytics
+```
+
+Builds a self-contained `connections-analytics.html` dashboard from `connections.csv` — network growth timeline, seniority and role charts, weekday patterns, top companies & keywords, recent connections, and a searchable contact table. All data stays local in the generated HTML file.
+
+```bash
+npm run connections:analytics:open   # generate and open in your browser
+```
+
+You can also pass custom paths:
+
+```bash
+node generate-connections-analytics.js --input connections.csv --output report.html --open
+```
+
+#### Analytics dashboard includes
+
+| Section | What it shows |
+|---|---|
+| Overview stats | Total connections, unique companies, dated profiles, headline length |
+| Growth timeline | New connections by month |
+| Role & seniority | Functional categories and seniority inferred from headlines |
+| Top companies & keywords | Most mentioned organisations and headline terms |
+| Contact explorer | Searchable, filterable table of every contact |
+
+### 3. Scrape connections by title (optional)
+
+Use this if you want to find sales/recruitment contacts via people search rather than downloading your full list:
 
 ```bash
 npm run scrape:sales
 ```
 
-Opens a browser window, logs in to LinkedIn, and works through a grid of keyword × geography searches. Results are written to `sales-connections.csv` after every page. Progress is saved to `scrape-state.json` so you can stop and resume at any time.
+Opens a browser window and works through a grid of keyword × geography searches. Results are written to `sales-connections.csv` after every page. Progress is saved to `scrape-state.json`.
 
 ```bash
 npm run scrape:status        # show grid progress summary
 npm run scrape:sales:fresh   # reset scrape progress (keeps existing CSV rows)
 ```
-
-### 2. Review the CSV
 
 `sales-connections.csv` columns:
 
@@ -68,7 +134,7 @@ npm run scrape:sales:fresh   # reset scrape progress (keeps existing CSV rows)
 | `search_id` | Which keyword × geo cell found them |
 | `geo` | Geography label |
 
-### 3. Remove connections
+### 4. Remove connections
 
 ```bash
 # Dry run — shows who would be removed, makes no changes
@@ -106,10 +172,19 @@ Default ignored companies: **Manna**, **Meili** (colleagues). Add more with `--i
 
 | File | Purpose |
 |---|---|
-| `scrape-sales-connections.js` | Main scraper |
+| `download-connections.js` | Full connections list downloader |
+| `generate-connections-analytics.js` | Analytics dashboard generator |
+| `lib/connections-analytics.js` | Analytics computation |
+| `lib/render-connections-analytics-html.js` | Dashboard HTML renderer |
+| `lib/connections-csv.js` | Shared CSV loader |
+| `lib/parse-sdui-connections.js` | Parser for LinkedIn SDUI pagination responses |
+| `scrape-sales-connections.js` | Keyword × geography people-search scraper |
 | `remove-connections.js` | Bulk removal script |
 | `search-plan.json` | Keyword × geography grid config |
-| `sales-connections.csv` | Scrape output (gitignored) |
+| `connections.csv` | Download output (gitignored) |
+| `connections-analytics.html` | Analytics dashboard output (gitignored) |
+| `download-connections-state.json` | Download resume state (gitignored) |
+| `sales-connections.csv` | Search scrape output (gitignored) |
 | `scrape-state.json` | Scrape resume state (gitignored) |
 | `remove-connections-state.json` | Tracks removed profiles (gitignored) |
 | `.env` | Your credentials (gitignored — never committed) |
@@ -119,6 +194,9 @@ Default ignored companies: **Manna**, **Meili** (colleagues). Add more with `--i
 ## Notes
 
 - Uses Puppeteer with your local LinkedIn session — nothing is sent to any external service
-- LinkedIn caps people search results at ~250 per query; the keyword × geography grid works around this
+- The connections downloader uses LinkedIn's `/flagship-web/rsc-action/actions/pagination` endpoint on the connections page — faster and more complete than people search for getting your full list
+- The analytics dashboard is a static HTML file — open it locally in any browser; it embeds your contact data so keep it private
+- LinkedIn caps people search results at ~250 per query; the keyword × geography grid works around this for the sales/recruitment scraper
 - Removals are spaced ~1.2 seconds apart to avoid rate limiting
-- The scraper supports both old and new LinkedIn search result DOM layouts
+- The people-search scraper supports both old and new LinkedIn search result DOM layouts
+- Never commit `.env`, CSV exports, analytics HTML, or browser session data — see `.cursor/rules/no-sensitive-git-commits.mdc`

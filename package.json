@@ -7,6 +7,11 @@
     "scrape:sales": "node scrape-sales-connections.js",
     "scrape:sales:fresh": "node scrape-sales-connections.js --fresh",
     "scrape:status": "node scrape-sales-connections.js --status",
+    "connections:download": "node download-connections.js",
+    "connections:download:fresh": "node download-connections.js --fresh",
+    "connections:download:status": "node download-connections.js --status",
+    "connections:analytics": "node generate-connections-analytics.js",
+    "connections:analytics:open": "node generate-connections-analytics.js --open",
     "connections:remove": "node remove-connections.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

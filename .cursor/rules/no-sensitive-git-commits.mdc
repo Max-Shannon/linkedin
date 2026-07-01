@@ -1,0 +1,37 @@
+---
+description: Never commit sensitive information to git in this project
+alwaysApply: true
+---
+
+# No Sensitive Git Commits
+
+Never commit sensitive or personal data to git in this project — not on main, not on feature branches, not even "temporarily".
+
+## Never commit
+
+- **Credentials & secrets**: passwords, `LI_AT` cookies, CSRF tokens, API keys, session tokens
+- **Environment files**: `.env`, `.env.local`, or any file containing real credentials
+- **Browser session data**: `.linkedin-session/` (contains LinkedIn login cookies)
+- **Personal data exports**: `*.csv` (`connections.csv`, `sales-connections.csv`, etc.) and generated analytics pages (`connections-analytics.html`)
+- **Runtime state with personal data**: `scrape-state.json`, `download-connections-state.json`, `remove-connections-state.json`, `remove-connections-results.json`
+
+## Never hardcode in source
+
+Do not put real emails, passwords, cookies, or tokens in committed `.js`, `.json`, `.md`, or config files. Use `.env` (gitignored) and `process.env` instead.
+
+## Before any git commit
+
+1. Run `git status` and `git diff` — inspect every staged and unstaged file
+2. **Refuse to commit** if any sensitive file is staged; unstage it and warn the user
+3. Scan diffs for accidental inline secrets (emails used as examples are fine in docs; real credentials are not)
+4. Only commit when the user explicitly asks — and still apply these checks every time
+
+## Safe to commit
+
+- Source code, `package.json`, `package-lock.json`, `.env.example` (placeholders only)
+- `search-plan.json`, `README.md`, `.gitignore`
+- Documentation with placeholder values like `you@example.com`
+
+## If sensitive data was committed
+
+Do not push. Tell the user immediately. Removing secrets requires history rewrite or credential rotation — do not attempt force-push to main without explicit user approval.

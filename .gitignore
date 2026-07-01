@@ -4,4 +4,6 @@ node_modules/
 scrape-state.json
 remove-connections-state.json
 remove-connections-results.json
+download-connections-state.json
+connections-analytics.html
 .linkedin-session/
