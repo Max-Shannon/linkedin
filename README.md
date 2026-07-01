@@ -78,7 +78,7 @@ npm run connections:download:fresh    # reset download state and CSV
 | `vanity_name` | Profile slug (used for removal) |
 | `connected_on` | Connection date as shown on LinkedIn |
 
-The downloader stops after **5,000 contacts**. Pagination requests are spaced with a **random 1–10 second delay** to reduce rate-limit risk.
+The downloader fetches up to **5,000 new contacts per run**. Run it again to continue (e.g. 5,000 → 10,000). Pagination requests are spaced with a **random 1–10 second delay** to reduce rate-limit risk.
 
 ### 2. Generate analytics dashboard
 

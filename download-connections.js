@@ -16,11 +16,11 @@ const PAGINATION_ENDPOINT =
   'https://www.linkedin.com/flagship-web/rsc-action/actions/pagination';
 const MIN_REQUEST_DELAY_MS = 1000;
 const MAX_REQUEST_DELAY_MS = 10000;
-const MAX_CONNECTIONS = 5000;
+const MAX_CONNECTIONS_PER_RUN = 5000;
 
 const OUTPUT_FILE = path.join(__dirname, 'connections.csv');
 const STATE_FILE = path.join(__dirname, 'download-connections-state.json');
-const STATE_VERSION = 1;
+const STATE_VERSION = 2;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,13 +28,6 @@ function sleep(ms) {
 
 function randomDelayMs(minMs = MIN_REQUEST_DELAY_MS, maxMs = MAX_REQUEST_DELAY_MS) {
   return minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
-}
-
-function capConnections(connections) {
-  if (connections.length <= MAX_CONNECTIONS) {
-    return connections;
-  }
-  return connections.slice(0, MAX_CONNECTIONS);
 }
 
 function escapeCsv(value) {
@@ -70,13 +63,18 @@ function loadState() {
   }
 
   try {
-    const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const raw = JSON.parse(fs.readFileSync(STATE_FILE, 'utf8'));
+    const migratedCompleted =
+      Number(raw.version) < 2 && raw.completed && Number(raw.totalSaved) >= 5000
+        ? false
+        : Boolean(raw.completed);
+
     return {
       version: STATE_VERSION,
-      startIndex: Number(state.startIndex) || 0,
-      totalSaved: Number(state.totalSaved) || 0,
-      completed: Boolean(state.completed),
-      updatedAt: state.updatedAt || null,
+      startIndex: Number(raw.startIndex) || 0,
+      totalSaved: Number(raw.totalSaved) || 0,
+      completed: migratedCompleted,
+      updatedAt: raw.updatedAt || null,
     };
   } catch (err) {
     console.error(err.stack || err.message);
@@ -337,42 +335,39 @@ async function fetchConnectionsPage(page, startIndex) {
 }
 
 async function collectAllConnections(page, state, existingConnections) {
-  let allConnections = capConnections([...existingConnections]);
+  let allConnections = [...existingConnections];
   let startIndex = state.startIndex;
-
-  if (allConnections.length >= MAX_CONNECTIONS) {
-    console.log(`Already at ${MAX_CONNECTIONS} connection limit.`);
-    saveState({
-      startIndex,
-      totalSaved: allConnections.length,
-      completed: true,
-    });
-    return allConnections;
-  }
+  let fetchedThisRun = 0;
+  let hitRunLimit = false;
+  let exhausted = false;
 
   if (startIndex === 0) {
     console.log('Parsing initial connections from page HTML...');
     const initialHtml = await page.content();
     const initialBatch = parseConnectionsFromSduiResponse(initialHtml);
     const before = allConnections.length;
-    allConnections = capConnections(mergeConnections(allConnections, initialBatch));
+    allConnections = mergeConnections(allConnections, initialBatch);
     const added = allConnections.length - before;
+    fetchedThisRun += added;
     console.log(`Initial page: ${added} connection(s)`);
     startIndex = allConnections.length;
     writeCsv(allConnections, OUTPUT_FILE);
     saveState({
       startIndex,
       totalSaved: allConnections.length,
-      completed: allConnections.length >= MAX_CONNECTIONS,
+      completed: false,
     });
 
-    if (allConnections.length >= MAX_CONNECTIONS) {
-      console.log(`Reached ${MAX_CONNECTIONS} connection limit.`);
+    if (fetchedThisRun >= MAX_CONNECTIONS_PER_RUN) {
+      hitRunLimit = true;
+      console.log(
+        `Reached ${MAX_CONNECTIONS_PER_RUN} per-run limit (${fetchedThisRun} new this run). Run again to fetch more.`
+      );
       return allConnections;
     }
   }
 
-  while (true) {
+  while (!hitRunLimit) {
     const delayMs = randomDelayMs();
     console.log(`Waiting ${(delayMs / 1000).toFixed(1)}s before next request...`);
     await sleep(delayMs);
@@ -392,44 +387,42 @@ async function collectAllConnections(page, state, existingConnections) {
     const batch = parseConnectionsFromSduiResponse(response.text);
     if (batch.length === 0) {
       console.log('No more connections returned.');
+      exhausted = true;
       break;
     }
 
     const before = allConnections.length;
-    allConnections = capConnections(mergeConnections(allConnections, batch));
+    allConnections = mergeConnections(allConnections, batch);
     const added = allConnections.length - before;
+    fetchedThisRun += added;
 
     console.log(
-      `Batch parsed ${batch.length} connection(s), ${added} new (total ${allConnections.length})`
+      `Batch parsed ${batch.length} connection(s), ${added} new (total ${allConnections.length}, ${fetchedThisRun} new this run)`
     );
 
     writeCsv(allConnections, OUTPUT_FILE);
     startIndex += batch.length;
-    const hitLimit = allConnections.length >= MAX_CONNECTIONS;
-    saveState({
-      startIndex,
-      totalSaved: allConnections.length,
-      completed: hitLimit,
-    });
 
-    if (hitLimit) {
-      console.log(`Reached ${MAX_CONNECTIONS} connection limit.`);
+    if (fetchedThisRun >= MAX_CONNECTIONS_PER_RUN) {
+      hitRunLimit = true;
+      console.log(
+        `Reached ${MAX_CONNECTIONS_PER_RUN} per-run limit (${fetchedThisRun} new this run). Run again to fetch more.`
+      );
       break;
     }
 
     if (added === 0) {
       console.log('Pagination returned only duplicates; stopping.');
+      exhausted = true;
       break;
     }
   }
 
-  if (allConnections.length < MAX_CONNECTIONS) {
-    saveState({
-      startIndex,
-      totalSaved: allConnections.length,
-      completed: true,
-    });
-  }
+  saveState({
+    startIndex,
+    totalSaved: allConnections.length,
+    completed: exhausted,
+  });
 
   return allConnections;
 }
@@ -437,9 +430,10 @@ async function collectAllConnections(page, state, existingConnections) {
 function printStatus(state, connections) {
   console.log(`CSV: ${OUTPUT_FILE}`);
   console.log(`State: ${STATE_FILE}`);
-  console.log(`Saved connections: ${connections.length} (limit ${MAX_CONNECTIONS})`);
+  console.log(`Saved connections: ${connections.length}`);
+  console.log(`Per-run fetch limit: ${MAX_CONNECTIONS_PER_RUN} new contacts`);
   console.log(`Next startIndex: ${state.startIndex}`);
-  console.log(`Completed: ${state.completed ? 'yes' : 'no'}`);
+  console.log(`Fully downloaded: ${state.completed ? 'yes' : 'no (run again to continue)'}`);
   if (state.updatedAt) {
     console.log(`Last updated: ${state.updatedAt}`);
   }
@@ -474,7 +468,7 @@ async function main() {
   }
 
   if (state.completed && !fresh) {
-    console.log('Previous download marked complete. Use --fresh to start over.');
+    console.log('All connections downloaded. Use --fresh to start over.');
     printStatus(state, existingConnections);
     return;
   }
