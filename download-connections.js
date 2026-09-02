@@ -5,7 +5,11 @@ const crypto = require('crypto');
 require('dotenv').config();
 
 const { parseConnectionsFromSduiResponse } = require('./lib/parse-sdui-connections');
-const { loadConnectionsCsv } = require('./lib/connections-csv');
+const {
+  loadConnectionsCsv,
+  writeConnectionsCsv,
+  mergeConnections,
+} = require('./lib/connections-csv');
 const {
   monthsCutoffDate,
   formatCutoffLabel,
@@ -191,27 +195,6 @@ function randomDelayMs(minMs = MIN_REQUEST_DELAY_MS, maxMs = MAX_REQUEST_DELAY_M
   return minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
 }
 
-function escapeCsv(value) {
-  const text = value == null ? '' : String(value);
-  if (/[",\n\r]/.test(text)) {
-    return `"${text.replace(/"/g, '""')}"`;
-  }
-  return text;
-}
-
-function writeCsv(rows, filePath) {
-  const header = ['name', 'title', 'profile_url', 'vanity_name', 'connected_on'];
-  const lines = [
-    header.join(','),
-    ...rows.map((row) =>
-      [row.name, row.title, row.profileUrl, row.vanityName, row.connectedOn]
-        .map(escapeCsv)
-        .join(',')
-    ),
-  ];
-  fs.writeFileSync(filePath, `${lines.join('\n')}\n`, 'utf8');
-}
-
 function emptyState() {
   return {
     version: STATE_VERSION,
@@ -270,21 +253,6 @@ function saveState(state) {
     )}\n`,
     'utf8'
   );
-}
-
-function mergeConnections(existing, incoming) {
-  const byVanity = new Map();
-  for (const row of existing) {
-    if (row.vanityName) {
-      byVanity.set(row.vanityName, row);
-    }
-  }
-  for (const row of incoming) {
-    if (row.vanityName) {
-      byVanity.set(row.vanityName, row);
-    }
-  }
-  return [...byVanity.values()];
 }
 
 function makeParentSpanId() {
@@ -552,7 +520,7 @@ async function collectAllConnections(
     fetchedThisRun += added;
     startIndex += originalLength;
     progress.addNew(added, allConnections.length);
-    writeCsv(allConnections, OUTPUT_FILE);
+    writeConnectionsCsv(allConnections, OUTPUT_FILE);
     persist({ completed: false });
     return { added, done: false };
   }
@@ -635,6 +603,12 @@ async function collectAllConnections(
         startIndex = syncTarget;
         consecutiveDuplicateBatches = 0;
         progress.setStatus(`Syncing to index ${startIndex.toLocaleString()}…`);
+        persist({ completed: false });
+        continue;
+      }
+
+      if (cutoff) {
+        progress.setStatus('Already in CSV — continuing to date cutoff…');
         persist({ completed: false });
         continue;
       }

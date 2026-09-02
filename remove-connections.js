@@ -4,8 +4,18 @@ const path = require('path');
 const crypto = require('crypto');
 require('dotenv').config();
 
+const {
+  parseCsvRow,
+  loadConnectionsCsv,
+  writeConnectionsCsv,
+  isDisconnected,
+  markDisconnected,
+} = require('./lib/connections-csv');
+const { interpretRemoveResponse, isTrackedRemoved } = require('./lib/remove-response');
+
 const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const INPUT_CSV = path.join(__dirname, 'sales-connections.csv');
+const MASTER_CSV = path.join(__dirname, 'connections.csv');
 const RESULT_FILE = path.join(__dirname, 'remove-connections-results.json');
 const REMOVE_STATE_FILE = path.join(__dirname, 'remove-connections-state.json');
 const REMOVE_STATE_VERSION = 1;
@@ -61,6 +71,8 @@ function parseArgs(argv) {
     limit: null,
     status: null,
     csv: INPUT_CSV,
+    masterCsv: MASTER_CSV,
+    match: null,
     ignoreCompanies: parseIgnoreCompanies(argv),
   };
 
@@ -89,38 +101,22 @@ function parseArgs(argv) {
       i += 1;
       continue;
     }
+    if (arg === '--master' && argv[i + 1]) {
+      args.masterCsv = path.resolve(argv[i + 1]);
+      i += 1;
+      continue;
+    }
+    if (arg === '--match' && argv[i + 1]) {
+      args.match = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg === '--prune-sales-bd-crypto') {
+      args.match = require('./lib/prune-title-pattern').source;
+    }
   }
 
   return args;
-}
-
-function parseCsvRow(line) {
-  const fields = [];
-  let current = '';
-  let inQuotes = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const ch = line[i];
-    if (inQuotes) {
-      if (ch === '"' && line[i + 1] === '"') {
-        current += '"';
-        i += 1;
-      } else if (ch === '"') {
-        inQuotes = false;
-      } else {
-        current += ch;
-      }
-    } else if (ch === '"') {
-      inQuotes = true;
-    } else if (ch === ',') {
-      fields.push(current);
-      current = '';
-    } else {
-      current += ch;
-    }
-  }
-  fields.push(current);
-  return fields;
 }
 
 function extractVanityName(profileUrl) {
@@ -214,8 +210,8 @@ function recordRemovedConnection(state, target, response) {
   saveRemoveState(state);
 }
 
-function isAlreadyRemoved(state, vanityName) {
-  return Boolean(state.removed[vanityName]);
+function isAlreadyRemoved(state, target) {
+  return isDisconnected(target) || isTrackedRemoved(state, target.vanityName);
 }
 
 function filterAlreadyRemoved(targets, state) {
@@ -223,7 +219,7 @@ function filterAlreadyRemoved(targets, state) {
   let skipped = 0;
 
   for (const target of targets) {
-    if (isAlreadyRemoved(state, target.vanityName)) {
+    if (isAlreadyRemoved(state, target)) {
       skipped += 1;
       continue;
     }
@@ -231,6 +227,42 @@ function filterAlreadyRemoved(targets, state) {
   }
 
   return { pending, skipped };
+}
+
+function syncMasterCsvFromRemoveState(masterPath, removeState) {
+  const rows = fs.existsSync(masterPath) ? loadConnectionsCsv(masterPath) : [];
+  const tally = { already: 0, updated: 0, inserted: 0 };
+
+  for (const entry of Object.values(removeState.removed || {})) {
+    if (!entry?.vanityName) {
+      continue;
+    }
+    const result = markDisconnected(rows, {
+      vanityName: entry.vanityName,
+      name: entry.name || '',
+      title: entry.title || '',
+      profileUrl: entry.profileUrl || '',
+      disconnectedOn: entry.removedAt || new Date().toISOString(),
+    });
+    if (tally[result] != null) {
+      tally[result] += 1;
+    }
+  }
+
+  writeConnectionsCsv(rows, masterPath);
+  return { rows, tally };
+}
+
+function persistDisconnectedOnMaster(masterRows, masterPath, target, at) {
+  markDisconnected(masterRows, {
+    vanityName: target.vanityName,
+    name: target.name,
+    title: target.title,
+    profileUrl: target.profileUrl,
+    connectedOn: target.connectedOn || '',
+    disconnectedOn: at,
+  });
+  writeConnectionsCsv(masterRows, masterPath);
 }
 
 function findIgnoredCompanyMatch(title, ignoreCompanies) {
@@ -284,6 +316,39 @@ function loadTargetsFromCsv(csvPath, args) {
   }
 
   const lines = raw.split('\n');
+  const header = parseCsvRow(lines[0]).map((cell) => cell.trim().toLowerCase());
+  const masterFormat = header.includes('vanity_name') || header.includes('connected_on');
+
+  if (masterFormat) {
+    let rows = loadConnectionsCsv(csvPath);
+    if (args.match) {
+      const pattern = new RegExp(args.match, 'i');
+      rows = rows.filter((row) => pattern.test(row.title || ''));
+    }
+    const mapped = rows
+      .filter((row) => row.profileUrl && row.vanityName)
+      .map((row) => ({
+        name: row.name || '',
+        title: row.title || '',
+        profileUrl: row.profileUrl,
+        status: '',
+        vanityName: row.vanityName,
+        connectedOn: row.connectedOn || '',
+        disconnected: row.disconnected,
+        disconnectedOn: row.disconnectedOn || '',
+      }));
+    const deduped = [];
+    const seen = new Set();
+    for (const target of mapped) {
+      if (seen.has(target.vanityName)) {
+        continue;
+      }
+      seen.add(target.vanityName);
+      deduped.push(target);
+    }
+    return deduped;
+  }
+
   const targets = [];
 
   for (let i = 1; i < lines.length; i += 1) {
@@ -301,6 +366,10 @@ function loadTargetsFromCsv(csvPath, args) {
       continue;
     }
 
+    if (args.match && !new RegExp(args.match, 'i').test(title || '')) {
+      continue;
+    }
+
     const vanityName = extractVanityName(profileUrl);
     if (!vanityName) {
       continue;
@@ -312,6 +381,9 @@ function loadTargetsFromCsv(csvPath, args) {
       profileUrl,
       status: status || '',
       vanityName,
+      connectedOn: '',
+      disconnected: false,
+      disconnectedOn: '',
     });
   }
 
@@ -504,7 +576,7 @@ async function removeConnection(page, vanityName) {
       return {
         ok: response.ok,
         status: response.status,
-        body: text.slice(0, 500),
+        body: text.slice(0, 2000),
       };
     },
     { url: endpoint, disconnectVanityName: vanityName, actionId: REMOVE_ACTION_ID }
@@ -529,6 +601,13 @@ async function main() {
     saveRemoveState(removeState);
   }
 
+  const synced = syncMasterCsvFromRemoveState(args.masterCsv, removeState);
+  let masterRows = synced.rows;
+  const prior = synced.tally;
+  console.log(
+    `Master CSV: ${prior.updated} newly marked from previous runs, ${prior.inserted} restored rows, ${prior.already} already marked.`
+  );
+
   const allTargets = loadTargetsFromCsv(args.csv, args);
   const { pending: companyFiltered, skipped: ignoredByCompany } = filterIgnoredCompanies(
     allTargets,
@@ -549,7 +628,7 @@ async function main() {
   }
 
   if (skipped > 0) {
-    console.log(`Skipping ${skipped} already-removed connection(s).`);
+    console.log(`Skipping ${skipped} already-disconnected connection(s) from previous runs.`);
   }
 
   if (targets.length === 0) {
@@ -578,6 +657,7 @@ async function main() {
   });
 
   const results = [];
+  let alreadyDisconnectedThisRun = 0;
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(60000);
@@ -591,15 +671,25 @@ async function main() {
 
       try {
         const response = await removeConnection(page, target.vanityName);
+        const interpreted = interpretRemoveResponse(response);
+        const at = new Date().toISOString();
+        const done =
+          interpreted.outcome === 'removed' || interpreted.outcome === 'already_disconnected';
         results.push({
           ...target,
-          removed: response.ok,
+          removed: done,
+          alreadyDisconnected: interpreted.outcome === 'already_disconnected',
           responseStatus: response.status,
           responseBody: response.body,
-          at: new Date().toISOString(),
+          at,
         });
-        if (response.ok) {
+        if (done) {
           recordRemovedConnection(removeState, target, response);
+          persistDisconnectedOnMaster(masterRows, args.masterCsv, target, at);
+          if (interpreted.outcome === 'already_disconnected') {
+            alreadyDisconnectedThisRun += 1;
+            console.log(`  Already disconnected — marked in CSV, skipping retries.`);
+          }
         } else {
           console.log(
             `  Failed (${response.status}) for ${target.vanityName}: ${response.body}`
@@ -610,6 +700,7 @@ async function main() {
         results.push({
           ...target,
           removed: false,
+          alreadyDisconnected: false,
           responseStatus: null,
           responseBody: err.stack || err.message,
           at: new Date().toISOString(),
@@ -623,10 +714,15 @@ async function main() {
     await browser.close();
   }
 
-  const removedCount = results.filter((result) => result.removed).length;
-  console.log(`Completed. Removed ${removedCount}/${results.length} connections.`);
+  const removedCount = results.filter(
+    (result) => result.removed && !result.alreadyDisconnected
+  ).length;
+  console.log(
+    `Completed. Removed ${removedCount}/${results.length} connections. Already disconnected this run: ${alreadyDisconnectedThisRun}. Skipped from previous runs: ${skipped}.`
+  );
   console.log(`Result log: ${RESULT_FILE}`);
   console.log(`Removal state: ${REMOVE_STATE_FILE}`);
+  console.log(`Master CSV: ${args.masterCsv}`);
 }
 
 main().catch((err) => {
