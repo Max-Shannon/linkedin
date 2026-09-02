@@ -6,6 +6,12 @@ require('dotenv').config();
 
 const { parseConnectionsFromSduiResponse } = require('./lib/parse-sdui-connections');
 const { loadConnectionsCsv } = require('./lib/connections-csv');
+const {
+  monthsCutoffDate,
+  formatCutoffLabel,
+  filterConnectionsToMonthsWindow,
+  batchIsPastMonthsWindow,
+} = require('./lib/connected-date');
 
 const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const CONNECTIONS_URL =
@@ -21,25 +27,35 @@ const MAX_CONSECUTIVE_DUPLICATE_BATCHES = 5;
 
 const OUTPUT_FILE = path.join(__dirname, 'connections.csv');
 const STATE_FILE = path.join(__dirname, 'download-connections-state.json');
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 const PROGRESS_BAR_WIDTH = 32;
+
+function parsePositiveIntArg(argv, index, flagName) {
+  const value = argv[index + 1];
+  if (!value || value.startsWith('--')) {
+    throw new Error(`${flagName} requires a number`);
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 1) {
+    throw new Error(`${flagName} must be a positive number`);
+  }
+  return Math.floor(parsed);
+}
 
 function parseCliArgs(argv) {
   const flags = new Set();
   let limit = DEFAULT_CONNECTIONS_PER_RUN;
+  let months = null;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--limit') {
-      const value = argv[i + 1];
-      if (!value || value.startsWith('--')) {
-        throw new Error('--limit requires a number');
-      }
-      limit = Number(value);
-      if (!Number.isFinite(limit) || limit < 1) {
-        throw new Error('--limit must be a positive number');
-      }
-      limit = Math.floor(limit);
+      limit = parsePositiveIntArg(argv, i, '--limit');
+      i += 1;
+      continue;
+    }
+    if (arg === '--months') {
+      months = parsePositiveIntArg(argv, i, '--months');
       i += 1;
       continue;
     }
@@ -48,7 +64,7 @@ function parseCliArgs(argv) {
     }
   }
 
-  return { flags, limit };
+  return { flags, limit, months };
 }
 
 function createProgressReporter(initialTotal, runLimit) {
@@ -97,14 +113,17 @@ async function sleepWithProgress(ms, progress) {
   await sleep(ms);
 }
 
-function printRunSummary(result, runLimit) {
+function printRunSummary(result, runLimit, monthsOptions) {
   const {
     connections,
     fetchedThisRun,
     hitRunLimit,
     linkedInListExhausted,
     stoppedOnDuplicates,
+    stoppedOnMonthsWindow,
   } = result;
+  const months = monthsOptions && monthsOptions.months;
+  const cutoffLabel = monthsOptions && monthsOptions.cutoffLabel;
 
   console.log('');
   console.log('═'.repeat(62));
@@ -114,6 +133,9 @@ function printRunSummary(result, runLimit) {
   console.log(`  Saved in CSV:     ${connections.length.toLocaleString()} connections`);
   console.log(`  New this run:     ${fetchedThisRun.toLocaleString()} connections`);
   console.log(`  Output file:      ${OUTPUT_FILE}`);
+  if (months) {
+    console.log(`  Date window:      last ${months} month${months === 1 ? '' : 's'} (on or after ${cutoffLabel})`);
+  }
   console.log('');
   console.log(`  ── About the ${runLimit.toLocaleString()} per-run limit ──`);
   console.log('');
@@ -121,6 +143,19 @@ function printRunSummary(result, runLimit) {
   console.log('  Your CSV keeps growing across runs (e.g. 5k → 10k → 15k → …).');
   console.log('  Progress is saved automatically, so you can stop and continue anytime.');
   console.log('');
+
+  if (stoppedOnMonthsWindow) {
+    console.log(`  ✓ Finished the last-${months}-month window (contacts on or after ${cutoffLabel}).`);
+    console.log('    LinkedIn lists newest connections first, so older pages were not fetched.');
+    console.log('');
+    console.log('    To download the rest of the network:');
+    console.log('      node download-connections.js --resume');
+    console.log('');
+    console.log('    For a CSV that only contains this window, use --fresh next time:');
+    console.log(`      npm run connections:download -- --fresh --months ${months}`);
+    console.log('');
+    return;
+  }
 
   if (linkedInListExhausted) {
     console.log('  ✓ All connections have been downloaded.');
@@ -131,7 +166,11 @@ function printRunSummary(result, runLimit) {
   console.log('  ► Run the command again until the summary says all connections');
   console.log('    are downloaded:');
   console.log('');
-  console.log('      npm run connections:download');
+  if (months) {
+    console.log(`      npm run connections:download -- --months ${months}`);
+  } else {
+    console.log('      npm run connections:download');
+  }
   console.log('');
 
   if (hitRunLimit) {
@@ -173,15 +212,21 @@ function writeCsv(rows, filePath) {
   fs.writeFileSync(filePath, `${lines.join('\n')}\n`, 'utf8');
 }
 
+function emptyState() {
+  return {
+    version: STATE_VERSION,
+    startIndex: 0,
+    totalSaved: 0,
+    completed: false,
+    completedReason: null,
+    monthsWindow: null,
+    updatedAt: null,
+  };
+}
+
 function loadState() {
   if (!fs.existsSync(STATE_FILE)) {
-    return {
-      version: STATE_VERSION,
-      startIndex: 0,
-      totalSaved: 0,
-      completed: false,
-      updatedAt: null,
-    };
+    return emptyState();
   }
 
   try {
@@ -196,17 +241,14 @@ function loadState() {
       startIndex: Number(raw.startIndex) || 0,
       totalSaved: Number(raw.totalSaved) || 0,
       completed: migratedCompleted,
+      completedReason: raw.completedReason || null,
+      monthsWindow:
+        raw.monthsWindow == null ? null : Number(raw.monthsWindow) || null,
       updatedAt: raw.updatedAt || null,
     };
   } catch (err) {
     console.error(err.stack || err.message);
-    return {
-      version: STATE_VERSION,
-      startIndex: 0,
-      totalSaved: 0,
-      completed: false,
-      updatedAt: null,
-    };
+    return emptyState();
   }
 }
 
@@ -219,6 +261,8 @@ function saveState(state) {
         startIndex: state.startIndex,
         totalSaved: state.totalSaved,
         completed: state.completed,
+        completedReason: state.completedReason || null,
+        monthsWindow: state.monthsWindow == null ? null : state.monthsWindow,
         updatedAt: new Date().toISOString(),
       },
       null,
@@ -452,14 +496,66 @@ async function fetchConnectionsPage(page, startIndex) {
   );
 }
 
-async function collectAllConnections(page, state, existingConnections, progress, runLimit) {
+async function collectAllConnections(
+  page,
+  state,
+  existingConnections,
+  progress,
+  runLimit,
+  monthsOptions
+) {
+  const cutoff = monthsOptions && monthsOptions.cutoff;
+  const months = monthsOptions && monthsOptions.months;
+  const cutoffLabel = monthsOptions && monthsOptions.cutoffLabel;
+
   let allConnections = [...existingConnections];
-  let startIndex = Math.max(state.startIndex, allConnections.length);
+  let startIndex = Math.max(state.startIndex, 0);
+  if (!cutoff) {
+    startIndex = Math.max(state.startIndex, allConnections.length);
+  }
   let fetchedThisRun = 0;
   let hitRunLimit = false;
   let linkedInListExhausted = false;
   let stoppedOnDuplicates = false;
+  let stoppedOnMonthsWindow = false;
   let consecutiveDuplicateBatches = 0;
+
+  function persist(partial) {
+    saveState({
+      startIndex,
+      totalSaved: allConnections.length,
+      completed: Boolean(partial.completed),
+      completedReason: partial.completedReason || null,
+      monthsWindow: months || state.monthsWindow || null,
+    });
+  }
+
+  function applyBatch(batch) {
+    const originalLength = batch.length;
+    if (cutoff && batchIsPastMonthsWindow(batch, cutoff)) {
+      startIndex += originalLength;
+      stoppedOnMonthsWindow = true;
+      progress.setStatus(`Stopping — contacts older than ${cutoffLabel}`);
+      persist({
+        completed: true,
+        completedReason: 'months_window',
+      });
+      return { added: 0, done: true };
+    }
+
+    const toMerge = cutoff
+      ? filterConnectionsToMonthsWindow(batch, cutoff)
+      : batch;
+    const before = allConnections.length;
+    allConnections = mergeConnections(allConnections, toMerge);
+    const added = allConnections.length - before;
+    fetchedThisRun += added;
+    startIndex += originalLength;
+    progress.addNew(added, allConnections.length);
+    writeCsv(allConnections, OUTPUT_FILE);
+    persist({ completed: false });
+    return { added, done: false };
+  }
 
   progress.setTotal(allConnections.length);
 
@@ -467,37 +563,33 @@ async function collectAllConnections(page, state, existingConnections, progress,
     progress.setStatus('Reading first page…');
     const initialHtml = await page.content();
     const initialBatch = parseConnectionsFromSduiResponse(initialHtml);
-    const before = allConnections.length;
-    allConnections = mergeConnections(allConnections, initialBatch);
-    const added = allConnections.length - before;
-    fetchedThisRun += added;
-    progress.addNew(added, allConnections.length);
-    startIndex = allConnections.length;
-    writeCsv(allConnections, OUTPUT_FILE);
-    saveState({
-      startIndex,
-      totalSaved: allConnections.length,
-      completed: false,
-    });
-
-    if (fetchedThisRun >= runLimit) {
-      hitRunLimit = true;
-      saveState({
-        startIndex,
-        totalSaved: allConnections.length,
-        completed: false,
-      });
+    const applied = applyBatch(initialBatch);
+    if (applied.done) {
       return {
         connections: allConnections,
         fetchedThisRun,
         hitRunLimit,
         linkedInListExhausted,
         stoppedOnDuplicates,
+        stoppedOnMonthsWindow,
+      };
+    }
+
+    if (fetchedThisRun >= runLimit) {
+      hitRunLimit = true;
+      persist({ completed: false });
+      return {
+        connections: allConnections,
+        fetchedThisRun,
+        hitRunLimit,
+        linkedInListExhausted,
+        stoppedOnDuplicates,
+        stoppedOnMonthsWindow,
       };
     }
   }
 
-  while (!hitRunLimit) {
+  while (!hitRunLimit && !stoppedOnMonthsWindow) {
     const delayMs = randomDelayMs();
     await sleepWithProgress(delayMs, progress);
 
@@ -520,20 +612,16 @@ async function collectAllConnections(page, state, existingConnections, progress,
       break;
     }
 
-    const before = allConnections.length;
-    allConnections = mergeConnections(allConnections, batch);
-    const added = allConnections.length - before;
-    fetchedThisRun += added;
+    const applied = applyBatch(batch);
+    if (applied.done) {
+      break;
+    }
 
-    progress.addNew(added, allConnections.length);
     progress.setStatus(
-      added > 0
-        ? `+${added} new (${allConnections.length.toLocaleString()} total)`
+      applied.added > 0
+        ? `+${applied.added} new (${allConnections.length.toLocaleString()} total)`
         : 'Skipping duplicates…'
     );
-
-    writeCsv(allConnections, OUTPUT_FILE);
-    startIndex += batch.length;
 
     if (fetchedThisRun >= runLimit) {
       hitRunLimit = true;
@@ -541,17 +629,13 @@ async function collectAllConnections(page, state, existingConnections, progress,
       break;
     }
 
-    if (added === 0) {
+    if (applied.added === 0) {
       const syncTarget = allConnections.length;
-      if (startIndex < syncTarget) {
+      if (!cutoff && startIndex < syncTarget) {
         startIndex = syncTarget;
         consecutiveDuplicateBatches = 0;
         progress.setStatus(`Syncing to index ${startIndex.toLocaleString()}…`);
-        saveState({
-          startIndex,
-          totalSaved: allConnections.length,
-          completed: false,
-        });
+        persist({ completed: false });
         continue;
       }
 
@@ -567,10 +651,14 @@ async function collectAllConnections(page, state, existingConnections, progress,
     consecutiveDuplicateBatches = 0;
   }
 
-  saveState({
-    startIndex,
-    totalSaved: allConnections.length,
-    completed: linkedInListExhausted && !hitRunLimit,
+  persist({
+    completed:
+      (linkedInListExhausted || stoppedOnMonthsWindow) && !hitRunLimit,
+    completedReason: stoppedOnMonthsWindow
+      ? 'months_window'
+      : linkedInListExhausted && !hitRunLimit
+        ? 'list_exhausted'
+        : null,
   });
 
   return {
@@ -579,6 +667,7 @@ async function collectAllConnections(page, state, existingConnections, progress,
     hitRunLimit,
     linkedInListExhausted,
     stoppedOnDuplicates,
+    stoppedOnMonthsWindow,
   };
 }
 
@@ -588,7 +677,19 @@ function printStatus(state, connections, runLimit = DEFAULT_CONNECTIONS_PER_RUN)
   console.log(`Saved connections: ${connections.length}`);
   console.log(`Default per-run fetch limit: ${runLimit.toLocaleString()} new contacts`);
   console.log(`Next startIndex: ${state.startIndex}`);
-  console.log(`Fully downloaded: ${state.completed ? 'yes' : 'no (run again to continue)'}`);
+  if (state.monthsWindow) {
+    if (state.completed && state.completedReason === 'months_window') {
+      console.log(`Fully downloaded: yes (last ${state.monthsWindow} months)`);
+    } else {
+      console.log(`Months window: last ${state.monthsWindow} months (in progress)`);
+      console.log(`Fully downloaded: ${state.completed ? 'yes' : 'no (run again to continue)'}`);
+    }
+  } else {
+    console.log(`Fully downloaded: ${state.completed ? 'yes' : 'no (run again to continue)'}`);
+  }
+  if (state.completedReason && state.completedReason !== 'months_window') {
+    console.log(`Completed reason: ${state.completedReason}`);
+  }
   if (state.updatedAt) {
     console.log(`Last updated: ${state.updatedAt}`);
   }
@@ -603,8 +704,9 @@ async function main() {
 
   let flags;
   let runLimit;
+  let months;
   try {
-    ({ flags, limit: runLimit } = parseCliArgs(process.argv.slice(2)));
+    ({ flags, limit: runLimit, months } = parseCliArgs(process.argv.slice(2)));
   } catch (err) {
     console.error(err.message);
     process.exit(1);
@@ -612,6 +714,13 @@ async function main() {
 
   const fresh = flags.has('--fresh');
   const resume = flags.has('--resume');
+  const monthsOptions = months
+    ? {
+        months,
+        cutoff: monthsCutoffDate(months),
+        cutoffLabel: formatCutoffLabel(monthsCutoffDate(months)),
+      }
+    : null;
 
   if (fresh) {
     if (fs.existsSync(STATE_FILE)) {
@@ -630,17 +739,54 @@ async function main() {
     return;
   }
 
-  if (state.completed && !fresh && !resume) {
-    console.log('Download marked complete. Use --resume to continue, or --fresh to start over.');
+  if (state.completed && !fresh && !resume && !monthsOptions) {
+    if (state.completedReason === 'months_window') {
+      console.log(
+        `Download marked complete for the last-${state.monthsWindow || '?'}-month window.`
+      );
+      console.log(
+        'Use --resume to continue past that window, --months N to refresh the window, or --fresh to start over.'
+      );
+    } else {
+      console.log('Download marked complete. Use --resume to continue, or --fresh to start over.');
+    }
     printStatus(state, existingConnections);
     return;
   }
 
   if (resume && state.completed) {
     state.completed = false;
+    state.completedReason = null;
   }
 
-  if (!fresh && existingConnections.length > state.startIndex) {
+  if (monthsOptions) {
+    const resumingMonths =
+      state.monthsWindow === months &&
+      !state.completed &&
+      state.startIndex > 0;
+
+    if (!fresh && existingConnections.length > 0 && !resumingMonths) {
+      console.log(
+        `Existing CSV has ${existingConnections.length.toLocaleString()} contacts.`
+      );
+      console.log(
+        `--months ${months} pages from the newest connections until ${monthsOptions.cutoffLabel}; older CSV rows are kept.`
+      );
+      console.log(
+        `Use --fresh --months ${months} for a file that only contains the last ${months} months.`
+      );
+      console.log('');
+    }
+
+    if (!resumingMonths) {
+      state.startIndex = 0;
+      state.completed = false;
+      state.completedReason = null;
+      state.monthsWindow = months;
+    }
+  }
+
+  if (!monthsOptions && !fresh && existingConnections.length > state.startIndex) {
     state.startIndex = existingConnections.length;
     state.totalSaved = existingConnections.length;
     state.completed = false;
@@ -666,10 +812,11 @@ async function main() {
         state,
         existingConnections,
         progress,
-        runLimit
+        runLimit,
+        monthsOptions
       );
       progress.end();
-      printRunSummary(result, runLimit);
+      printRunSummary(result, runLimit, monthsOptions);
     } catch (err) {
       progress.end();
       throw err;

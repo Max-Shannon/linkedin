@@ -8,7 +8,7 @@ A Node.js tool to download your 1st-degree LinkedIn connections, classify them b
 
 ## Features
 
-- Downloads your full connections list via LinkedIn's connections-page pagination API
+- Downloads your full connections list via LinkedIn's connections-page pagination API, or only the last N months (`--months`)
 - Generates a local analytics dashboard with charts, role breakdown, and searchable contact table
 - Scrapes 1st-degree connections via LinkedIn people search using a keyword × geography grid (for title-based discovery)
 - Classifies each connection as `sales`, `recruitment`, `sales_and_recruitment`, or `not_target`
@@ -82,6 +82,15 @@ node download-connections.js --resume # continue if wrongly marked complete
 | `connected_on` | Connection date as shown on LinkedIn |
 
 The downloader fetches up to **5,000 new contacts per run**. Run it again to continue (e.g. 5,000 → 10,000). Pagination requests are spaced with a **random 1–10 second delay** to reduce rate-limit risk.
+
+To download only recent connections (LinkedIn lists newest first), stop paging once dates fall outside the window:
+
+```bash
+npm run connections:download -- --fresh --months 6
+npm run connections:download -- --months 3 --limit 5000
+```
+
+`--months N` keeps contacts connected on or after today minus N calendar months. Use `--fresh --months N` for a CSV that only contains that window. Without `--fresh`, older rows already in `connections.csv` are kept. After the window is complete, `--resume` continues into older connections.
 
 ### 2. Generate analytics dashboard
 
@@ -176,6 +185,7 @@ Default ignored companies: **Manna**, **Meili** (colleagues). Add more with `--i
 | File | Purpose |
 |---|---|
 | `download-connections.js` | Full connections list downloader |
+| `lib/connected-date.js` | Parse LinkedIn “Connected on” dates and months-window cutoff |
 | `generate-connections-analytics.js` | Analytics dashboard generator |
 | `lib/connections-analytics.js` | Analytics computation |
 | `lib/render-connections-analytics-html.js` | Dashboard HTML renderer |
