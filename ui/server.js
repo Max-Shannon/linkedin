@@ -298,7 +298,7 @@ app.post('/api/jobs/analytics', (req, res) => {
       name: 'analytics',
       label: 'Generate analytics',
       detail: `Build report from ${path.basename(CONNECTIONS_CSV)}`,
-      args: [path.join(ROOT, 'generate-connections-analytics.js')],
+      args: [path.join(ROOT, 'generate-connections-analytics.js'), '--open'],
       password: req.body && req.body.password,
     });
     res.json({ ok: true, job });

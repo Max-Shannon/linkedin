@@ -65,7 +65,7 @@
         <p>Builds a private HTML dashboard from connections.csv.</p>
         <p class="job-hint" id="analytics-status" hidden>Building the dashboard from connections.csv… this can take a minute with a large list.</p>
         <div class="row">
-          <button type="button" id="start-analytics" class="primary" data-tooltip="Read connections.csv and rebuild the private connections-analytics.html report. The existing report is backed up first.">Generate dashboard</button>
+          <button type="button" id="start-analytics" class="primary" data-tooltip="Read connections.csv and rebuild the private connections-analytics.html report. When it finishes, the new page opens in your browser. The existing report is backed up first.">Generate dashboard</button>
           <a id="open-analytics" class="button-link" href="/analytics" target="_blank" rel="noopener" data-tooltip="Open the most recently generated analytics report in a new tab. Generate it first if the report is missing or out of date.">Open dashboard</a>
         </div>
       </section>
@@ -102,7 +102,7 @@
       </section>
     </div>
 
-    <section class="jobs-card" aria-labelledby="jobs-title">
+    <section class="jobs-card" id="jobs-pane" aria-labelledby="jobs-title">
       <div class="jobs-head">
         <div>
           <h2 id="jobs-title">Jobs</h2>

@@ -38,6 +38,7 @@ const OUTPUT_FILE = path.join(__dirname, 'connections.csv');
 const STATE_FILE = path.join(__dirname, 'download-connections-state.json');
 const STATE_VERSION = 3;
 const PROGRESS_BAR_WIDTH = 32;
+const HEARTBEAT_MS = 5000;
 
 function parsePositiveIntArg(argv, index, flagName) {
   const value = argv[index + 1];
@@ -80,7 +81,35 @@ function createProgressReporter(initialTotal, runLimit) {
   let runNew = 0;
   let totalSaved = initialTotal;
   let status = 'Starting…';
+  let pages = 0;
+  let lastLineAt = Date.now();
+  const startedAt = Date.now();
   const interactive = Boolean(process.stdout.isTTY);
+
+  function elapsedLabel() {
+    const seconds = Math.round((Date.now() - startedAt) / 1000);
+    const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+    const secs = String(seconds % 60).padStart(2, '0');
+    return `${mins}:${secs}`;
+  }
+
+  function emit(line) {
+    lastLineAt = Date.now();
+    console.log(`[${elapsedLabel()}] ${line}`);
+  }
+
+  // Without a TTY the carriage-return bar is invisible, so callers get one
+  // line per event instead.
+  const heartbeat = interactive
+    ? null
+    : setInterval(() => {
+        if (Date.now() - lastLineAt >= HEARTBEAT_MS) {
+          emit(`still working — ${status}`);
+        }
+      }, HEARTBEAT_MS);
+  if (heartbeat) {
+    heartbeat.unref();
+  }
 
   function render() {
     if (!interactive) {
@@ -97,18 +126,37 @@ function createProgressReporter(initialTotal, runLimit) {
   return {
     setStatus(nextStatus) {
       status = nextStatus;
-      render();
+      if (interactive) {
+        render();
+        return;
+      }
+      emit(nextStatus);
     },
     addNew(added, total) {
       runNew += added;
       totalSaved = total;
-      render();
+      pages += 1;
+      if (interactive) {
+        render();
+        return;
+      }
+      const pct = Math.min(100, Math.round((runNew / runLimit) * 100));
+      emit(
+        `page ${pages} · +${added.toLocaleString()} new · ${runNew.toLocaleString()}/${runLimit.toLocaleString()} this run (${pct}%) · ${total.toLocaleString()} saved`
+      );
     },
     setTotal(total) {
       totalSaved = total;
-      render();
+      if (interactive) {
+        render();
+        return;
+      }
+      emit(`Starting from ${total.toLocaleString()} saved connection(s).`);
     },
     end() {
+      if (heartbeat) {
+        clearInterval(heartbeat);
+      }
       if (interactive) {
         process.stdout.write('\n');
       }
@@ -673,6 +721,7 @@ async function main() {
     saveState(state);
   }
 
+  console.log('Launching browser…');
   const browser = await launchLinkedInBrowser({
     headless: process.env.HEADLESS === 'true',
   });
@@ -680,7 +729,9 @@ async function main() {
   try {
     const page = await browser.newPage();
     page.setDefaultTimeout(60000);
+    console.log('Opening LinkedIn connections page…');
     await ensureLoggedIn(page, CONNECTIONS_URL);
+    console.log('Ready. Starting scan…');
 
     const progress = createProgressReporter(existingConnections.length, runLimit);
     try {

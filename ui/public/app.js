@@ -342,6 +342,14 @@ async function refreshStatus() {
   renderStatus(status);
 }
 
+function scrollJobsIntoView() {
+  const pane = document.getElementById('jobs-pane');
+  if (!pane) {
+    return;
+  }
+  pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 document.getElementById('save-email').addEventListener('click', async () => {
   try {
     await postJson('/api/setup', { email: emailEl.value });
@@ -353,6 +361,7 @@ document.getElementById('save-email').addEventListener('click', async () => {
 });
 
 document.getElementById('start-download').addEventListener('click', async () => {
+  scrollJobsIntoView();
   try {
     await postJson('/api/jobs/download', {
       password: password(),
@@ -370,6 +379,7 @@ document.getElementById('start-analytics').addEventListener('click', async () =>
   document.getElementById('start-analytics').disabled = true;
   document.getElementById('cancel').disabled = false;
   document.getElementById('stat-job').textContent = 'analytics';
+  scrollJobsIntoView();
   try {
     await postJson('/api/jobs/analytics', {});
   } catch (err) {
@@ -392,6 +402,7 @@ function removePayload(execute) {
 }
 
 document.getElementById('start-dry').addEventListener('click', async () => {
+  scrollJobsIntoView();
   try {
     await postJson('/api/jobs/remove', removePayload(false));
   } catch (err) {
@@ -406,6 +417,7 @@ document.getElementById('start-execute').addEventListener('click', async () => {
   if (!ok) {
     return;
   }
+  scrollJobsIntoView();
   try {
     await postJson('/api/jobs/remove', removePayload(true));
   } catch (err) {
