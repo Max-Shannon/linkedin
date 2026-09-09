@@ -1,6 +1,86 @@
 const logEl = document.getElementById('log');
 const emailEl = document.getElementById('email');
 const passwordEl = document.getElementById('password');
+const tooltipEl = document.getElementById('tooltip');
+let tooltipTarget = null;
+
+function positionTooltip(target) {
+  const targetRect = target.getBoundingClientRect();
+  const tooltipRect = tooltipEl.getBoundingClientRect();
+  const gap = 10;
+  const edge = 10;
+  let top = targetRect.top - tooltipRect.height - gap;
+
+  if (top < edge) {
+    top = targetRect.bottom + gap;
+  }
+  top = Math.max(edge, Math.min(top, window.innerHeight - tooltipRect.height - edge));
+
+  let left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2;
+  left = Math.max(edge, Math.min(left, window.innerWidth - tooltipRect.width - edge));
+  tooltipEl.style.top = `${Math.round(top)}px`;
+  tooltipEl.style.left = `${Math.round(left)}px`;
+}
+
+function showTooltip(target) {
+  const text = target && target.dataset.tooltip;
+  if (!text) {
+    return;
+  }
+  tooltipTarget = target;
+  tooltipEl.textContent = text;
+  tooltipEl.hidden = false;
+  target.setAttribute('aria-describedby', 'tooltip');
+  positionTooltip(target);
+}
+
+function hideTooltip(target) {
+  if (target && tooltipTarget !== target) {
+    return;
+  }
+  if (tooltipTarget && tooltipTarget.getAttribute('aria-describedby') === 'tooltip') {
+    tooltipTarget.removeAttribute('aria-describedby');
+  }
+  tooltipTarget = null;
+  tooltipEl.hidden = true;
+}
+
+document.addEventListener('pointerover', (event) => {
+  const target = event.target.closest('[data-tooltip]');
+  if (target && !target.contains(event.relatedTarget)) {
+    showTooltip(target);
+  }
+});
+
+document.addEventListener('pointerout', (event) => {
+  const target = event.target.closest('[data-tooltip]');
+  if (target && !target.contains(event.relatedTarget)) {
+    hideTooltip(target);
+  }
+});
+
+document.addEventListener('focusin', (event) => {
+  const target = event.target.closest('[data-tooltip]');
+  if (target) {
+    showTooltip(target);
+  }
+});
+
+document.addEventListener('focusout', (event) => {
+  const target = event.target.closest('[data-tooltip]');
+  if (target) {
+    hideTooltip(target);
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    hideTooltip();
+  }
+});
+
+window.addEventListener('scroll', () => hideTooltip(), true);
+window.addEventListener('resize', () => hideTooltip());
 
 function password() {
   return passwordEl.value;
@@ -24,6 +104,14 @@ function appendLog(line) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function setAnalyticsRunning(running) {
+  const btn = document.getElementById('start-analytics');
+  const hint = document.getElementById('analytics-status');
+  btn.classList.toggle('busy', running);
+  btn.textContent = running ? 'Generating…' : 'Generate dashboard';
+  hint.hidden = !running;
+}
+
 function renderStatus(status) {
   if (!status) {
     return;
@@ -36,11 +124,13 @@ function renderStatus(status) {
     emailEl.value = status.email;
   }
   const busy = Boolean(status.job);
+  const analyticsRunning = Boolean(status.job && status.job.name === 'analytics');
   document.getElementById('start-download').disabled = busy;
   document.getElementById('start-analytics').disabled = busy;
   document.getElementById('start-dry').disabled = busy;
   document.getElementById('start-execute').disabled = busy;
   document.getElementById('cancel').disabled = !busy;
+  setAnalyticsRunning(analyticsRunning);
 }
 
 async function refreshStatus() {
@@ -73,10 +163,16 @@ document.getElementById('start-download').addEventListener('click', async () => 
 });
 
 document.getElementById('start-analytics').addEventListener('click', async () => {
+  setAnalyticsRunning(true);
+  document.getElementById('start-analytics').disabled = true;
+  document.getElementById('cancel').disabled = false;
+  document.getElementById('stat-job').textContent = 'analytics';
   try {
     await postJson('/api/jobs/analytics', {});
   } catch (err) {
+    setAnalyticsRunning(false);
     appendLog(err.stack || err.message);
+    await refreshStatus();
   }
 });
 

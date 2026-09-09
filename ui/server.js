@@ -177,6 +177,10 @@ function parsePositiveInt(value, label) {
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
+app.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/docs', express.static(path.join(ROOT, 'docs')));
 

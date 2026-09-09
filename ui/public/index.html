@@ -12,72 +12,73 @@
 <body>
   <div class="bg" aria-hidden="true"></div>
   <header>
-    <div class="brand"><span class="mark">in</span> Connection Cleaner</div>
+    <div class="brand" tabindex="0" data-tooltip="LinkedIn Connection Cleaner runs entirely on this computer and helps you download, analyse and selectively remove first-degree connections."><span class="mark">in</span> Connection Cleaner</div>
     <div class="head-right">
       <nav class="docs-nav">
-        <a href="/docs/index.html#wizard" target="_blank" rel="noopener">Setup wizard</a>
-        <a href="/docs/readme.html" target="_blank" rel="noopener">Full guide</a>
+        <a href="/docs/index.html#wizard" target="_blank" rel="noopener" data-tooltip="Open the eight-step local walkthrough covering installation, downloading, analytics, removal and privacy.">Setup wizard</a>
+        <a href="/docs/readme.html" target="_blank" rel="noopener" data-tooltip="Open the complete local documentation, including the executive summary and detailed reference.">Full guide</a>
       </nav>
-      <p class="badge">Localhost only · 127.0.0.1</p>
+      <p class="badge" tabindex="0" data-tooltip="Only software on this Mac can access the dashboard. It is not exposed to your network or the internet.">Localhost only · 127.0.0.1</p>
     </div>
   </header>
 
   <main>
     <p class="lead">Drive download, analytics, and removals from this page. LinkedIn login still opens in Puppeteer’s Chromium window when needed. Password is used for this job only and is not saved.</p>
 
-    <p class="lead">New here? The <a href="/docs/index.html#wizard" target="_blank" rel="noopener">step-by-step wizard</a> walks through every stage in order, and the <a href="/docs/readme.html" target="_blank" rel="noopener">full guide</a> has an executive summary plus a deeper dive on how each part works. Both are served from this machine, so they work offline.</p>
+    <p class="lead">New here? The <a href="/docs/index.html#wizard" target="_blank" rel="noopener" data-tooltip="Open the guided eight-step introduction in a new tab. It is served locally and works offline.">step-by-step wizard</a> walks through every stage in order, and the <a href="/docs/readme.html" target="_blank" rel="noopener" data-tooltip="Open the full local reference in a new tab, with both a short summary and detailed instructions.">full guide</a> has an executive summary plus a deeper dive on how each part works. Both are served from this machine, so they work offline.</p>
 
-    <section class="stats" id="stats">
-      <div class="stat"><strong id="stat-email">—</strong><span>Email in .env</span></div>
-      <div class="stat"><strong id="stat-csv">0</strong><span>connections.csv</span></div>
-      <div class="stat"><strong id="stat-sales">0</strong><span>sales-connections.csv</span></div>
-      <div class="stat"><strong id="stat-job">idle</strong><span>Current job</span></div>
+    <section class="stats" id="stats" aria-label="Current application status">
+      <div class="stat" tabindex="0" data-tooltip="The LinkedIn account email currently stored in the local .env file. Your password is never stored here."><strong id="stat-email">—</strong><span>Email in .env</span></div>
+      <div class="stat" tabindex="0" data-tooltip="The number of connection records in the local master connections.csv file, including records marked as disconnected."><strong id="stat-csv">0</strong><span>connections.csv</span></div>
+      <div class="stat" tabindex="0" data-tooltip="The number of title-classified records in sales-connections.csv from the optional sales and recruitment search."><strong id="stat-sales">0</strong><span>sales-connections.csv</span></div>
+      <div class="stat" tabindex="0" data-tooltip="Shows idle when nothing is running, or the name of the active download, analytics or removal job. Only one job runs at a time."><strong id="stat-job">idle</strong><span>Current job</span></div>
     </section>
 
     <div class="grid">
       <section class="card">
-        <h2>Setup <a class="card-help" href="/docs/readme.html#dive-setup" target="_blank" rel="noopener">Explain this</a></h2>
+        <h2>Setup <a class="card-help" href="/docs/readme.html#dive-setup" target="_blank" rel="noopener" data-tooltip="Jump to the setup section of the full local guide.">Explain this</a></h2>
         <label>LinkedIn email
-          <input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+          <input id="email" type="email" autocomplete="username" placeholder="you@example.com" data-tooltip="Enter the email address used to sign into LinkedIn. Save writes only this email to the local .env file.">
         </label>
         <label>Password <span class="hint">(this run only)</span>
-          <input id="password" type="password" autocomplete="current-password">
+          <input id="password" type="password" autocomplete="current-password" data-tooltip="Used only if LinkedIn needs a fresh login. It is passed directly to the current job, never written to .env and cleared when the page closes.">
         </label>
-        <button type="button" id="save-email">Save email to .env</button>
+        <button type="button" id="save-email" data-tooltip="Validate this email and save it as LINKEDIN_EMAIL in the local .env file for future runs. The password is not saved.">Save email to .env</button>
       </section>
 
       <section class="card">
-        <h2>Download <a class="card-help" href="/docs/readme.html#dive-download" target="_blank" rel="noopener">Explain this</a></h2>
-        <label>Months window (optional) <a class="inline-help" href="/docs/readme.html#dive-months" target="_blank" rel="noopener">what’s this?</a>
-          <input id="months" type="number" min="1" placeholder="e.g. 6">
+        <h2>Download <a class="card-help" href="/docs/readme.html#dive-download" target="_blank" rel="noopener" data-tooltip="Jump to detailed instructions for downloading your LinkedIn connections.">Explain this</a></h2>
+        <label>Months window (optional) <a class="inline-help" href="/docs/readme.html#dive-months" target="_blank" rel="noopener" data-tooltip="Read how date-window downloads stop once they reach connections older than the selected cutoff.">what’s this?</a>
+          <input id="months" type="number" min="1" placeholder="e.g. 6" data-tooltip="Optional. Enter 6 to fetch connections added in roughly the last six months. Leave blank to continue a full download. Existing older rows are retained unless Fresh is selected.">
         </label>
         <label>Limit new contacts
-          <input id="dl-limit" type="number" min="1" placeholder="5000">
+          <input id="dl-limit" type="number" min="1" placeholder="5000" data-tooltip="Maximum number of previously unseen connections to add during this run. Leave blank for the default limit of 5,000; run again to continue.">
         </label>
-        <label class="check"><input id="fresh" type="checkbox"> Fresh CSV and state</label>
-        <button type="button" id="start-download" class="primary">Start download</button>
+        <label class="check" data-tooltip="Start from an empty connections.csv and reset pagination state. The rolling backup system saves the current CSV and state first."><input id="fresh" type="checkbox"> Fresh CSV and state</label>
+        <button type="button" id="start-download" class="primary" data-tooltip="Open LinkedIn in the managed Chromium session and begin fetching connections. Progress appears in the Log; interrupted runs can resume.">Start download</button>
       </section>
 
       <section class="card">
-        <h2>Analytics <a class="card-help" href="/docs/readme.html#dive-analytics" target="_blank" rel="noopener">Explain this</a></h2>
+        <h2>Analytics <a class="card-help" href="/docs/readme.html#dive-analytics" target="_blank" rel="noopener" data-tooltip="Jump to the analytics section of the full local guide.">Explain this</a></h2>
         <p>Builds a private HTML dashboard from connections.csv.</p>
+        <p class="job-hint" id="analytics-status" hidden>Building the dashboard from connections.csv… this can take a minute with a large list.</p>
         <div class="row">
-          <button type="button" id="start-analytics" class="primary">Generate dashboard</button>
-          <a id="open-analytics" class="button-link" href="/analytics" target="_blank" rel="noopener">Open dashboard</a>
+          <button type="button" id="start-analytics" class="primary" data-tooltip="Read connections.csv and rebuild the private connections-analytics.html report. The existing report is backed up first.">Generate dashboard</button>
+          <a id="open-analytics" class="button-link" href="/analytics" target="_blank" rel="noopener" data-tooltip="Open the most recently generated analytics report in a new tab. Generate it first if the report is missing or out of date.">Open dashboard</a>
         </div>
       </section>
 
       <section class="card">
-        <h2>Remove <a class="card-help" href="/docs/readme.html#dive-remove" target="_blank" rel="noopener">Explain this</a></h2>
+        <h2>Remove <a class="card-help" href="/docs/readme.html#dive-remove" target="_blank" rel="noopener" data-tooltip="Jump to the safety notes and detailed removal workflow in the local guide.">Explain this</a></h2>
         <p>Always dry-run first. Execute is a separate action.</p>
         <label>CSV
-          <select id="csv-source">
+          <select id="csv-source" data-tooltip="Choose the source list. connections.csv is the master download; sales-connections.csv contains contacts classified by the optional title search.">
             <option value="connections">connections.csv</option>
             <option value="sales">sales-connections.csv</option>
           </select>
         </label>
         <label>Status
-          <select id="status">
+          <select id="status" data-tooltip="Filter candidates by classification. Spam combines sales, recruitment and sales_and_recruitment; blank includes every row in the selected CSV.">
             <option value="">(all rows)</option>
             <option value="spam">spam (sales + recruitment)</option>
             <option value="sales">sales</option>
@@ -87,11 +88,11 @@
           </select>
         </label>
         <label>Limit
-          <input id="rm-limit" type="number" min="1" value="20">
+          <input id="rm-limit" type="number" min="1" value="20" data-tooltip="Maximum candidates to preview or remove in this run. Start with a small number such as 20 and review the dry run carefully.">
         </label>
         <div class="row">
-          <button type="button" id="start-dry">Dry run</button>
-          <button type="button" id="start-execute" class="danger">Execute removals</button>
+          <button type="button" id="start-dry" data-tooltip="List exactly which connections match without changing anything on LinkedIn. Always do this before Execute removals.">Dry run</button>
+          <button type="button" id="start-execute" class="danger" data-tooltip="Permanently disconnect the matching people on LinkedIn, up to the selected limit. You must confirm before it starts; completed removals are tracked locally.">Execute removals</button>
         </div>
       </section>
     </div>
@@ -99,12 +100,13 @@
     <section class="log-card">
       <div class="log-head">
         <h2>Log</h2>
-        <button type="button" id="cancel" class="danger">Cancel job</button>
+        <button type="button" id="cancel" class="danger" data-tooltip="Ask the currently running child process to stop. Any CSV and progress already written are retained so supported jobs can resume.">Cancel job</button>
       </div>
-      <pre id="log" aria-live="polite"></pre>
+      <pre id="log" aria-live="polite" tabindex="0" data-tooltip="Live output from the active job. Scroll here for progress, warnings and errors. This log exists only for the current dashboard server session."></pre>
     </section>
   </main>
 
+  <div id="tooltip" class="tooltip" role="tooltip" hidden></div>
   <script src="app.js"></script>
 </body>
 </html>
