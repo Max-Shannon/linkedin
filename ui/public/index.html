@@ -13,11 +13,19 @@
   <div class="bg" aria-hidden="true"></div>
   <header>
     <div class="brand"><span class="mark">in</span> Connection Cleaner</div>
-    <p class="badge">Localhost only · 127.0.0.1</p>
+    <div class="head-right">
+      <nav class="docs-nav">
+        <a href="/docs/index.html#wizard" target="_blank" rel="noopener">Setup wizard</a>
+        <a href="/docs/readme.html" target="_blank" rel="noopener">Full guide</a>
+      </nav>
+      <p class="badge">Localhost only · 127.0.0.1</p>
+    </div>
   </header>
 
   <main>
     <p class="lead">Drive download, analytics, and removals from this page. LinkedIn login still opens in Puppeteer’s Chromium window when needed. Password is used for this job only and is not saved.</p>
+
+    <p class="lead">New here? The <a href="/docs/index.html#wizard" target="_blank" rel="noopener">step-by-step wizard</a> walks through every stage in order, and the <a href="/docs/readme.html" target="_blank" rel="noopener">full guide</a> has an executive summary plus a deeper dive on how each part works. Both are served from this machine, so they work offline.</p>
 
     <section class="stats" id="stats">
       <div class="stat"><strong id="stat-email">—</strong><span>Email in .env</span></div>
@@ -28,7 +36,7 @@
 
     <div class="grid">
       <section class="card">
-        <h2>Setup</h2>
+        <h2>Setup <a class="card-help" href="/docs/readme.html#dive-setup" target="_blank" rel="noopener">Explain this</a></h2>
         <label>LinkedIn email
           <input id="email" type="email" autocomplete="username" placeholder="you@example.com">
         </label>
@@ -39,8 +47,8 @@
       </section>
 
       <section class="card">
-        <h2>Download</h2>
-        <label>Months window (optional)
+        <h2>Download <a class="card-help" href="/docs/readme.html#dive-download" target="_blank" rel="noopener">Explain this</a></h2>
+        <label>Months window (optional) <a class="inline-help" href="/docs/readme.html#dive-months" target="_blank" rel="noopener">what’s this?</a>
           <input id="months" type="number" min="1" placeholder="e.g. 6">
         </label>
         <label>Limit new contacts
@@ -51,7 +59,7 @@
       </section>
 
       <section class="card">
-        <h2>Analytics</h2>
+        <h2>Analytics <a class="card-help" href="/docs/readme.html#dive-analytics" target="_blank" rel="noopener">Explain this</a></h2>
         <p>Builds a private HTML dashboard from connections.csv.</p>
         <div class="row">
           <button type="button" id="start-analytics" class="primary">Generate dashboard</button>
@@ -60,7 +68,7 @@
       </section>
 
       <section class="card">
-        <h2>Remove</h2>
+        <h2>Remove <a class="card-help" href="/docs/readme.html#dive-remove" target="_blank" rel="noopener">Explain this</a></h2>
         <p>Always dry-run first. Execute is a separate action.</p>
         <label>CSV
           <select id="csv-source">

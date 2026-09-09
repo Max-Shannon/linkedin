@@ -66,6 +66,30 @@ header {
   font-size: 0.85rem;
 }
 
+.head-right {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.docs-nav {
+  display: flex;
+  gap: 14px;
+  font-size: 0.86rem;
+}
+
+.docs-nav a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+  padding-bottom: 2px;
+}
+
+.docs-nav a:hover {
+  color: var(--cyan);
+  border-bottom-color: var(--cyan);
+}
+
 .badge {
   margin: 0;
   color: var(--cyan);
@@ -75,6 +99,41 @@ header {
 .lead {
   color: var(--muted);
   max-width: 70ch;
+}
+
+.lead a {
+  color: var(--text);
+}
+
+.lead a:hover {
+  color: var(--cyan);
+}
+
+.card-help {
+  float: right;
+  font-family: var(--font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.card-help:hover {
+  color: var(--cyan);
+  border-color: var(--cyan);
+}
+
+.inline-help {
+  color: var(--cyan);
+  font-size: 0.78rem;
+  text-decoration: none;
+}
+
+.inline-help:hover {
+  text-decoration: underline;
 }
 
 .stats {
@@ -216,4 +275,5 @@ pre {
 @media (max-width: 800px) {
   .stats, .grid { grid-template-columns: 1fr; }
   header { flex-direction: column; align-items: flex-start; }
+  .head-right { flex-direction: column; align-items: flex-start; gap: 8px; }
 }

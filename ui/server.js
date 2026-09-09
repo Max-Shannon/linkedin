@@ -178,6 +178,7 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/docs', express.static(path.join(ROOT, 'docs')));
 
 app.get('/api/status', (_req, res) => {
   res.json(statusPayload());
