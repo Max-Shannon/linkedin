@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connection Cleaner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="bg" aria-hidden="true"></div>
+  <header>
+    <div class="brand"><span class="mark">in</span> Connection Cleaner</div>
+    <p class="badge">Localhost only · 127.0.0.1</p>
+  </header>
+
+  <main>
+    <p class="lead">Drive download, analytics, and removals from this page. LinkedIn login still opens in Puppeteer’s Chromium window when needed. Password is used for this job only and is not saved.</p>
+
+    <section class="stats" id="stats">
+      <div class="stat"><strong id="stat-email">—</strong><span>Email in .env</span></div>
+      <div class="stat"><strong id="stat-csv">0</strong><span>connections.csv</span></div>
+      <div class="stat"><strong id="stat-sales">0</strong><span>sales-connections.csv</span></div>
+      <div class="stat"><strong id="stat-job">idle</strong><span>Current job</span></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Setup</h2>
+        <label>LinkedIn email
+          <input id="email" type="email" autocomplete="username" placeholder="you@example.com">
+        </label>
+        <label>Password <span class="hint">(this run only)</span>
+          <input id="password" type="password" autocomplete="current-password">
+        </label>
+        <button type="button" id="save-email">Save email to .env</button>
+      </section>
+
+      <section class="card">
+        <h2>Download</h2>
+        <label>Months window (optional)
+          <input id="months" type="number" min="1" placeholder="e.g. 6">
+        </label>
+        <label>Limit new contacts
+          <input id="dl-limit" type="number" min="1" placeholder="5000">
+        </label>
+        <label class="check"><input id="fresh" type="checkbox"> Fresh CSV and state</label>
+        <button type="button" id="start-download" class="primary">Start download</button>
+      </section>
+
+      <section class="card">
+        <h2>Analytics</h2>
+        <p>Builds a private HTML dashboard from connections.csv.</p>
+        <div class="row">
+          <button type="button" id="start-analytics" class="primary">Generate dashboard</button>
+          <a id="open-analytics" class="button-link" href="/analytics" target="_blank" rel="noopener">Open dashboard</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Remove</h2>
+        <p>Always dry-run first. Execute is a separate action.</p>
+        <label>CSV
+          <select id="csv-source">
+            <option value="connections">connections.csv</option>
+            <option value="sales">sales-connections.csv</option>
+          </select>
+        </label>
+        <label>Status
+          <select id="status">
+            <option value="">(all rows)</option>
+            <option value="spam">spam (sales + recruitment)</option>
+            <option value="sales">sales</option>
+            <option value="recruitment">recruitment</option>
+            <option value="sales_and_recruitment">sales_and_recruitment</option>
+            <option value="not_target">not_target</option>
+          </select>
+        </label>
+        <label>Limit
+          <input id="rm-limit" type="number" min="1" value="20">
+        </label>
+        <div class="row">
+          <button type="button" id="start-dry">Dry run</button>
+          <button type="button" id="start-execute" class="danger">Execute removals</button>
+        </div>
+      </section>
+    </div>
+
+    <section class="log-card">
+      <div class="log-head">
+        <h2>Log</h2>
+        <button type="button" id="cancel" class="danger">Cancel job</button>
+      </div>
+      <pre id="log" aria-live="polite"></pre>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

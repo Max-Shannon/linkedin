@@ -17,6 +17,7 @@ A Node.js tool to download your 1st-degree LinkedIn connections, classify them b
 - Bulk-removes connections by status, with dry-run mode before anything is deleted
 - Tracks removed profiles so they're skipped on future runs
 - Ignores connections at specified companies (e.g. colleagues)
+- Local web dashboard (`npm start`) on 127.0.0.1 to run download, analytics, and removals without the CLI
 
 ---
 
@@ -41,6 +42,16 @@ Edit `.env` and set your LinkedIn email:
 ```
 LINKEDIN_EMAIL=you@example.com
 ```
+
+### Local dashboard (easiest on a Mac)
+
+```bash
+npm start
+```
+
+Opens `http://127.0.0.1:3847/` in your browser (localhost only). Use it to save your email, start a download (`--months` / `--limit` / fresh), generate analytics, and dry-run or execute removals. Live logs stream in the page. Your password is sent only for that job and is **not** written to `.env`. LinkedIn login still happens in the Puppeteer Chromium window when a session is missing. Cancel stops the running job.
+
+The CLI commands below still work the same way.
 
 ---
 

@@ -16,6 +16,7 @@
     "profile:scrape": "node scrape-profile.js",
     "profile:html": "node generate-profile-html.js",
     "profile:html:open": "node generate-profile-html.js --open",
+    "start": "node ui/server.js",
     "test": "node test/parse-sdui-connections.test.js && node test/connections-csv.test.js"
   },
   "keywords": [],

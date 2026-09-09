@@ -90,7 +90,7 @@
         </div>
         <h3 class="exec-flow-title">The default path</h3>
         <ol class="exec-flow">
-          <li>Install Node.js 18+, clone the repo, <code>npm install</code>, copy <code>.env.example</code> to <code>.env</code>, set <code>LINKEDIN_EMAIL</code>.</li>
+          <li>Install Node.js 18+, clone the repo, <code>npm install</code>, copy <code>.env.example</code> to <code>.env</code>, set <code>LINKEDIN_EMAIL</code>. Or run <code>npm start</code> and use the local dashboard at <code>http://127.0.0.1:3847/</code>.</li>
           <li>Run <code>npm run connections:download</code> (repeat until the summary says the list is complete, or use <code>--months N</code> for recent contacts only).</li>
           <li>Run <code>npm run connections:analytics:open</code> and explore the dashboard locally.</li>
           <li>Optional: <code>npm run scrape:sales</code> to classify sales/recruitment via people search.</li>
@@ -146,6 +146,7 @@ cp .env.example .env</pre>
               <pre>LINKEDIN_EMAIL=you@example.com</pre>
             </div>
             <p>Optional: set <code>LI_AT</code> to your LinkedIn <code>li_at</code> cookie to skip the password prompt. On first run without that cookie, a browser window opens; complete login (and any checkpoint) there. The session is reused from <code>.linkedin-session/</code>.</p>
+            <p>For a clickable UI on your Mac, run <code>npm start</code> and use <code>http://127.0.0.1:3847/</code> (localhost only). Password is sent per job and is not stored in <code>.env</code>.</p>
           </article>
 
           <article id="dive-download">
