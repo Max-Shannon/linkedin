@@ -23,7 +23,7 @@
   </header>
 
   <main>
-    <p class="lead">Drive download, analytics, and removals from this page. LinkedIn login still opens in Puppeteer’s Chromium window when needed. Password is used for this job only and is not saved.</p>
+    <p class="lead">Drive download, analytics, and removals from this page. LinkedIn login still opens in Puppeteer’s Chromium window when needed. Your password is sent only with the job that needs it and is never written to <code>.env</code>; it is kept in this browser only if you tick “Remember for 30 days”.</p>
 
     <p class="lead">New here? The <a href="/docs/index.html#wizard" target="_blank" rel="noopener" data-tooltip="Open the guided eight-step introduction in a new tab. It is served locally and works offline.">step-by-step wizard</a> walks through every stage in order, and the <a href="/docs/readme.html" target="_blank" rel="noopener" data-tooltip="Open the full local reference in a new tab, with both a short summary and detailed instructions.">full guide</a> has an executive summary plus a deeper dive on how each part works. Both are served from this machine, so they work offline.</p>
 
@@ -40,9 +40,11 @@
         <label>LinkedIn email
           <input id="email" type="email" autocomplete="username" placeholder="you@example.com" data-tooltip="Enter the email address used to sign into LinkedIn. Save writes only this email to the local .env file.">
         </label>
-        <label>Password <span class="hint">(this run only)</span>
-          <input id="password" type="password" autocomplete="current-password" data-tooltip="Used only if LinkedIn needs a fresh login. It is passed directly to the current job, never written to .env and cleared when the page closes.">
+        <label>Password <span class="hint" id="password-hint">(this run only)</span>
+          <input id="password" type="password" autocomplete="current-password" data-tooltip="Used only if LinkedIn needs a fresh login. It is passed directly to the job that needs it and is never written to .env.">
         </label>
+        <label class="check" data-tooltip="Keep this password in your browser's local storage on this machine for 30 days so you do not retype it. It is stored in plain text and readable by anyone with access to this browser profile. Untick to erase it immediately."><input id="remember" type="checkbox"> Remember for 30 days</label>
+        <p class="job-hint" id="remember-status" hidden></p>
         <button type="button" id="save-email" data-tooltip="Validate this email and save it as LINKEDIN_EMAIL in the local .env file for future runs. The password is not saved.">Save email to .env</button>
       </section>
 

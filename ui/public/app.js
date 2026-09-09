@@ -83,6 +83,113 @@ document.addEventListener('keydown', (event) => {
 window.addEventListener('scroll', () => hideTooltip(), true);
 window.addEventListener('resize', () => hideTooltip());
 
+const rememberEl = document.getElementById('remember');
+const rememberStatusEl = document.getElementById('remember-status');
+const passwordHintEl = document.getElementById('password-hint');
+const REMEMBER_KEY = 'connection-cleaner.password';
+const REMEMBER_DAYS = 30;
+
+function readRemembered() {
+  let raw;
+  try {
+    raw = window.localStorage.getItem(REMEMBER_KEY);
+  } catch (err) {
+    console.error(err.stack || err.message);
+    return null;
+  }
+  if (!raw) {
+    return null;
+  }
+  try {
+    const entry = JSON.parse(raw);
+    if (!entry || typeof entry.value !== 'string' || !entry.expiresAt) {
+      forgetPassword();
+      return null;
+    }
+    if (Date.now() >= entry.expiresAt) {
+      forgetPassword();
+      return null;
+    }
+    return entry;
+  } catch (err) {
+    console.error(err.stack || err.message);
+    forgetPassword();
+    return null;
+  }
+}
+
+function rememberPassword(value) {
+  if (!value) {
+    return null;
+  }
+  const entry = {
+    value,
+    expiresAt: Date.now() + REMEMBER_DAYS * 24 * 60 * 60 * 1000,
+  };
+  try {
+    window.localStorage.setItem(REMEMBER_KEY, JSON.stringify(entry));
+  } catch (err) {
+    console.error(err.stack || err.message);
+    appendLog(`Could not save the password in this browser: ${err.message}`);
+    return null;
+  }
+  return entry;
+}
+
+function forgetPassword() {
+  try {
+    window.localStorage.removeItem(REMEMBER_KEY);
+  } catch (err) {
+    console.error(err.stack || err.message);
+  }
+}
+
+function renderRememberState(entry) {
+  const active = Boolean(entry);
+  rememberEl.checked = active;
+  passwordHintEl.textContent = active ? '(remembered)' : '(this run only)';
+  rememberStatusEl.hidden = !active;
+  if (active) {
+    const expires = new Date(entry.expiresAt);
+    rememberStatusEl.textContent = `Stored in this browser until ${expires.toLocaleDateString()}.`;
+  }
+}
+
+function restoreRememberedPassword() {
+  const entry = readRemembered();
+  if (entry) {
+    passwordEl.value = entry.value;
+  }
+  renderRememberState(entry);
+}
+
+rememberEl.addEventListener('change', () => {
+  if (!rememberEl.checked) {
+    forgetPassword();
+    renderRememberState(null);
+    appendLog('Forgot the saved password in this browser.');
+    return;
+  }
+  if (!passwordEl.value) {
+    rememberEl.checked = false;
+    appendLog('Enter your password first, then tick Remember for 30 days.');
+    return;
+  }
+  renderRememberState(rememberPassword(passwordEl.value));
+});
+
+passwordEl.addEventListener('change', () => {
+  if (!rememberEl.checked) {
+    return;
+  }
+  if (!passwordEl.value) {
+    forgetPassword();
+    renderRememberState(null);
+    return;
+  }
+  renderRememberState(rememberPassword(passwordEl.value));
+});
+
 function password() {
   return passwordEl.value;
 }
@@ -349,6 +456,7 @@ events.addEventListener('message', (event) => {
   }
 });
 
+restoreRememberedPassword();
 refreshStatus().catch((err) => appendLog(err.stack || err.message));
 
 setInterval(() => {
