@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { loadConnectionsCsv } = require('./lib/connections-csv');
+const { snapshotAll, writeProtectedFile } = require('./lib/rolling-backup');
 const { computeConnectionsAnalytics } = require('./lib/connections-analytics');
 const { renderConnectionsAnalyticsHtml } = require('./lib/render-connections-analytics-html');
 
@@ -77,9 +78,10 @@ async function main() {
     process.exit(1);
   }
 
+  snapshotAll();
   const analytics = computeConnectionsAnalytics(connections);
   const html = renderConnectionsAnalyticsHtml(analytics);
-  fs.writeFileSync(args.output, html, 'utf8');
+  writeProtectedFile(args.output, html);
 
   console.log(`Analysed ${connections.length} connection(s).`);
   console.log(`Analytics page written to: ${args.output}`);

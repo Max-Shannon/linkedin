@@ -12,6 +12,11 @@ const {
   markDisconnected,
 } = require('./lib/connections-csv');
 const { interpretRemoveResponse, isTrackedRemoved } = require('./lib/remove-response');
+const {
+  snapshotAll,
+  writeProtectedFile,
+  removeProtectedFile,
+} = require('./lib/rolling-backup');
 
 const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const INPUT_CSV = path.join(__dirname, 'sales-connections.csv');
@@ -166,7 +171,7 @@ function loadRemoveState() {
 
 function saveRemoveState(state) {
   state.updatedAt = new Date().toISOString();
-  fs.writeFileSync(REMOVE_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  writeProtectedFile(REMOVE_STATE_FILE, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function migrateRemovedFromResults(state) {
@@ -492,10 +497,11 @@ async function main() {
   }
 
   const args = parseArgs(process.argv);
+  snapshotAll();
 
   let removeState = args.fresh ? buildEmptyRemoveState() : loadRemoveState();
   if (args.fresh && fs.existsSync(REMOVE_STATE_FILE)) {
-    fs.unlinkSync(REMOVE_STATE_FILE);
+    removeProtectedFile(REMOVE_STATE_FILE);
     console.log('Cleared removal state.');
   } else {
     removeState = migrateRemovedFromResults(removeState);
@@ -609,7 +615,7 @@ async function main() {
         });
       }
 
-      fs.writeFileSync(RESULT_FILE, `${JSON.stringify(results, null, 2)}\n`, 'utf8');
+      writeProtectedFile(RESULT_FILE, `${JSON.stringify(results, null, 2)}\n`);
       await sleep(1200);
     }
   } finally {

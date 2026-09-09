@@ -2,6 +2,12 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const {
+  snapshotAll,
+  snapshotBeforeWrite,
+  writeProtectedFile,
+  removeProtectedFile,
+} = require('./lib/rolling-backup');
 
 const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const SEARCH_URL_BASE = 'https://www.linkedin.com/search/results/people/';
@@ -43,7 +49,9 @@ function writeCsv(rows, filePath) {
         .join(',')
     ),
   ];
-  fs.writeFileSync(filePath, `${lines.join('\n')}\n`, 'utf8');
+  const contents = `${lines.join('\n')}\n`;
+  snapshotBeforeWrite(filePath, contents);
+  fs.writeFileSync(filePath, contents, 'utf8');
 }
 
 function parseCsvRow(line) {
@@ -404,19 +412,19 @@ function loadScrapeState() {
 
 function saveScrapeState(state) {
   state.updatedAt = new Date().toISOString();
-  fs.writeFileSync(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`, 'utf8');
+  writeProtectedFile(STATE_FILE, `${JSON.stringify(state, null, 2)}\n`);
 }
 
 function resetScrapeProgress() {
   if (fs.existsSync(STATE_FILE)) {
-    fs.unlinkSync(STATE_FILE);
+    removeProtectedFile(STATE_FILE);
   }
 }
 
 function resetAllProgress() {
   resetScrapeProgress();
   if (fs.existsSync(OUTPUT_FILE)) {
-    fs.unlinkSync(OUTPUT_FILE);
+    removeProtectedFile(OUTPUT_FILE);
   }
 }
 
@@ -1312,6 +1320,7 @@ async function main() {
 
   const headless = process.env.HEADLESS === 'true';
   const args = new Set(process.argv.slice(2));
+  snapshotAll();
   const runtime = resolveResumeState({
     fresh: args.has('--fresh'),
     freshAll: args.has('--fresh-all'),

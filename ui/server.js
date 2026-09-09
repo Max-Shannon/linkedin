@@ -4,6 +4,8 @@ const { spawn } = require('child_process');
 const express = require('express');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
+const { snapshotAll } = require('../lib/rolling-backup');
+
 const ROOT = path.join(__dirname, '..');
 const HOST = '127.0.0.1';
 const PORT = Number(process.env.UI_PORT) || 3847;
@@ -123,6 +125,11 @@ function startJob({ name, args, password }) {
     delete env.LINKEDIN_PASSWORD;
   }
   env.FORCE_COLOR = '0';
+
+  const copied = snapshotAll();
+  if (copied.length) {
+    appendLog(`Backup: saved ${copied.length} file(s) under .backups/`);
+  }
 
   const child = spawn(process.execPath, args, {
     cwd: ROOT,

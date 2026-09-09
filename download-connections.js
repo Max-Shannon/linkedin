@@ -16,6 +16,11 @@ const {
   filterConnectionsToMonthsWindow,
   batchIsPastMonthsWindow,
 } = require('./lib/connected-date');
+const {
+  snapshotAll,
+  writeProtectedFile,
+  removeProtectedFile,
+} = require('./lib/rolling-backup');
 
 const LINKEDIN_EMAIL = process.env.LINKEDIN_EMAIL;
 const CONNECTIONS_URL =
@@ -236,7 +241,7 @@ function loadState() {
 }
 
 function saveState(state) {
-  fs.writeFileSync(
+  writeProtectedFile(
     STATE_FILE,
     `${JSON.stringify(
       {
@@ -250,8 +255,7 @@ function saveState(state) {
       },
       null,
       2
-    )}\n`,
-    'utf8'
+    )}\n`
   );
 }
 
@@ -596,12 +600,14 @@ async function main() {
       }
     : null;
 
+  snapshotAll();
+
   if (fresh) {
     if (fs.existsSync(STATE_FILE)) {
-      fs.unlinkSync(STATE_FILE);
+      removeProtectedFile(STATE_FILE);
     }
     if (fs.existsSync(OUTPUT_FILE)) {
-      fs.unlinkSync(OUTPUT_FILE);
+      removeProtectedFile(OUTPUT_FILE);
     }
   }
 
