@@ -5,6 +5,7 @@ const express = require('express');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
 const { snapshotAll } = require('../lib/rolling-backup');
+const { normalizeKeywords } = require('../lib/keyword-filter');
 
 const ROOT = path.join(__dirname, '..');
 const HOST = '127.0.0.1';
@@ -15,9 +16,11 @@ const SALES_CSV = path.join(ROOT, 'sales-connections.csv');
 const ANALYTICS_HTML = path.join(ROOT, 'connections-analytics.html');
 
 const MAX_LOG_LINES = 4000;
+const MAX_JOB_HISTORY = 10;
 const sseClients = new Set();
 let currentJob = null;
 const logLines = [];
+const jobHistory = [];
 
 function cleanLogChunk(chunk) {
   return String(chunk)
@@ -27,6 +30,7 @@ function cleanLogChunk(chunk) {
 
 function appendLog(text) {
   const pieces = cleanLogChunk(text).split('\n');
+  let jobChanged = false;
   for (const piece of pieces) {
     const line = piece.replace(/\s+$/g, '');
     if (!line && logLines[logLines.length - 1] === '') {
@@ -37,6 +41,13 @@ function appendLog(text) {
       logLines.splice(0, logLines.length - MAX_LOG_LINES);
     }
     broadcast({ type: 'log', line });
+    if (currentJob && line.trim() && !line.startsWith('──')) {
+      currentJob.statusLine = line.trim();
+      jobChanged = true;
+    }
+  }
+  if (jobChanged) {
+    broadcast({ type: 'job', job: jobSnapshot() });
   }
 }
 
@@ -87,8 +98,14 @@ function jobSnapshot() {
     return null;
   }
   return {
+    id: currentJob.id,
     name: currentJob.name,
+    label: currentJob.label,
+    detail: currentJob.detail,
     startedAt: currentJob.startedAt,
+    elapsedMs: Date.now() - new Date(currentJob.startedAt).getTime(),
+    statusLine: currentJob.statusLine,
+    state: currentJob.state,
     running: true,
   };
 }
@@ -100,6 +117,7 @@ function statusPayload() {
     salesCount: csvRowCount(SALES_CSV),
     analyticsExists: fs.existsSync(ANALYTICS_HTML),
     job: jobSnapshot(),
+    history: jobHistory,
   };
 }
 
@@ -107,11 +125,15 @@ function stopJob(signal = 'SIGTERM') {
   if (!currentJob || !currentJob.child) {
     return false;
   }
+  currentJob.state = signal === 'SIGKILL' ? 'stopping' : 'cancelling';
+  currentJob.statusLine =
+    signal === 'SIGKILL' ? 'Force-stopping process…' : 'Cancellation requested…';
+  broadcast({ type: 'job', job: jobSnapshot() });
   currentJob.child.kill(signal);
   return true;
 }
 
-function startJob({ name, args, password }) {
+function startJob({ name, label, detail, args, password }) {
   if (currentJob) {
     const err = new Error('A job is already running. Cancel it first.');
     err.statusCode = 409;
@@ -137,11 +159,17 @@ function startJob({ name, args, password }) {
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  currentJob = {
+  const job = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name,
+    label: label || name,
+    detail: detail || '',
     startedAt: new Date().toISOString(),
+    statusLine: 'Starting process…',
+    state: 'running',
     child,
   };
+  currentJob = job;
   appendLog(`\n── Started ${name} ──`);
   broadcast({ type: 'job', job: jobSnapshot() });
 
@@ -149,14 +177,34 @@ function startJob({ name, args, password }) {
   child.stderr.on('data', (buf) => appendLog(buf.toString('utf8')));
 
   child.on('error', (err) => {
+    job.statusLine = err.message;
     appendLog(err.stack || err.message);
   });
 
   child.on('close', (code, signal) => {
-    const ended = currentJob;
-    currentJob = null;
+    const endedAt = new Date().toISOString();
+    const cancelled = job.state === 'cancelling' || job.state === 'stopping';
+    const outcome = cancelled ? 'cancelled' : code === 0 ? 'succeeded' : 'failed';
+    const completed = {
+      id: job.id,
+      name: job.name,
+      label: job.label,
+      detail: job.detail,
+      startedAt: job.startedAt,
+      endedAt,
+      durationMs: new Date(endedAt).getTime() - new Date(job.startedAt).getTime(),
+      statusLine: job.statusLine,
+      outcome,
+      exitCode: code,
+      signal: signal || null,
+    };
+    jobHistory.unshift(completed);
+    jobHistory.splice(MAX_JOB_HISTORY);
+    if (currentJob === job) {
+      currentJob = null;
+    }
     appendLog(`── ${name} finished (code ${code}${signal ? `, ${signal}` : ''}) ──`);
-    broadcast({ type: 'job', job: null, exitCode: code, name: ended && ended.name });
+    broadcast({ type: 'job', job: null, completed });
     broadcast({ type: 'status', status: statusPayload() });
   });
 
@@ -215,19 +263,25 @@ app.post('/api/jobs/download', (req, res) => {
   try {
     const body = req.body || {};
     const args = [path.join(ROOT, 'download-connections.js')];
+    const detailParts = [];
     if (body.fresh) {
       args.push('--fresh');
+      detailParts.push('fresh CSV');
     }
     const months = parsePositiveInt(body.months, '--months');
     if (months) {
       args.push('--months', String(months));
+      detailParts.push(`last ${months} month${months === 1 ? '' : 's'}`);
     }
     const limit = parsePositiveInt(body.limit, '--limit');
     if (limit) {
       args.push('--limit', String(limit));
+      detailParts.push(`limit ${limit.toLocaleString()}`);
     }
     const job = startJob({
       name: 'download',
+      label: 'Download connections',
+      detail: detailParts.join(' · ') || 'Resume full connection download',
       args,
       password: body.password,
     });
@@ -242,6 +296,8 @@ app.post('/api/jobs/analytics', (req, res) => {
   try {
     const job = startJob({
       name: 'analytics',
+      label: 'Generate analytics',
+      detail: `Build report from ${path.basename(CONNECTIONS_CSV)}`,
       args: [path.join(ROOT, 'generate-connections-analytics.js')],
       password: req.body && req.body.password,
     });
@@ -267,12 +323,25 @@ app.post('/api/jobs/remove', (req, res) => {
     if (body.status) {
       args.push('--status', String(body.status));
     }
+    const keywords = normalizeKeywords(body.keywords);
+    if (keywords.length) {
+      args.push('--keywords', keywords.join(','));
+    }
     const limit = parsePositiveInt(body.limit, '--limit');
     if (limit) {
       args.push('--limit', String(limit));
     }
     const job = startJob({
       name: body.execute ? 'remove-execute' : 'remove-dry-run',
+      label: body.execute ? 'Remove connections' : 'Preview removals',
+      detail: [
+        path.basename(csvChoice),
+        body.status ? `status: ${body.status}` : 'all statuses',
+        keywords.length ? `title: ${keywords.join(' OR ')}` : null,
+        limit ? `limit ${limit}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
       args,
       password: body.password,
     });

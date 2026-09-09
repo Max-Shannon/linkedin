@@ -169,7 +169,7 @@ header {
   gap: 16px;
 }
 
-.card, .log-card {
+.card, .jobs-card, .log-card {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -190,7 +190,7 @@ label {
   color: var(--muted);
 }
 
-input, select {
+input, select, textarea {
   display: block;
   width: 100%;
   margin-top: 6px;
@@ -200,6 +200,11 @@ input, select {
   background: rgba(0, 0, 0, 0.28);
   color: var(--text);
   font: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 66px;
 }
 
 .check {
@@ -301,6 +306,110 @@ button.busy::before {
 [data-tooltip]:focus-visible {
   outline: 2px solid var(--cyan);
   outline-offset: 3px;
+}
+
+.jobs-card {
+  margin-top: 16px;
+}
+
+.jobs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.jobs-head h2 {
+  margin-bottom: 2px;
+}
+
+.jobs-head p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.status-pill {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.status-pill.running {
+  color: var(--cyan);
+  border-color: rgba(34, 211, 238, 0.45);
+}
+
+.status-pill.succeeded {
+  color: #86efac;
+  border-color: rgba(134, 239, 172, 0.4);
+}
+
+.status-pill.failed,
+.status-pill.cancelled {
+  color: var(--danger);
+  border-color: rgba(248, 113, 113, 0.45);
+}
+
+.current-job {
+  margin: 16px 0;
+  min-height: 48px;
+}
+
+.job-name {
+  font-weight: 600;
+}
+
+.job-detail,
+.job-stage,
+.job-meta,
+.empty-state {
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.job-detail,
+.job-stage,
+.job-meta {
+  margin: 4px 0 0;
+}
+
+.job-stage {
+  color: var(--text);
+  font-family: var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.jobs-card h3 {
+  margin: 18px 0 8px;
+  font-size: 0.78rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.job-history {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.job-history li {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) auto;
+  gap: 4px 16px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.job-history .job-detail,
+.job-history .job-stage {
+  grid-column: 1 / -1;
 }
 
 .log-card { margin-top: 16px; }

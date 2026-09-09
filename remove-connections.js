@@ -13,6 +13,10 @@ const {
 } = require('./lib/connections-csv');
 const { interpretRemoveResponse, isTrackedRemoved } = require('./lib/remove-response');
 const {
+  normalizeKeywords,
+  titleMatchesKeywords,
+} = require('./lib/keyword-filter');
+const {
   snapshotAll,
   writeProtectedFile,
   removeProtectedFile,
@@ -78,6 +82,7 @@ function parseArgs(argv) {
     csv: INPUT_CSV,
     masterCsv: MASTER_CSV,
     match: null,
+    keywords: [],
     ignoreCompanies: parseIgnoreCompanies(argv),
   };
 
@@ -113,6 +118,11 @@ function parseArgs(argv) {
     }
     if (arg === '--match' && argv[i + 1]) {
       args.match = argv[i + 1];
+      i += 1;
+      continue;
+    }
+    if (arg === '--keywords' && argv[i + 1]) {
+      args.keywords = normalizeKeywords(argv[i + 1]);
       i += 1;
       continue;
     }
@@ -330,6 +340,7 @@ function loadTargetsFromCsv(csvPath, args) {
       const pattern = new RegExp(args.match, 'i');
       rows = rows.filter((row) => pattern.test(row.title || ''));
     }
+    rows = rows.filter((row) => titleMatchesKeywords(row.title, args.keywords));
     const mapped = rows
       .filter((row) => row.profileUrl && row.vanityName)
       .map((row) => ({
@@ -372,6 +383,9 @@ function loadTargetsFromCsv(csvPath, args) {
     }
 
     if (args.match && !new RegExp(args.match, 'i').test(title || '')) {
+      continue;
+    }
+    if (!titleMatchesKeywords(title, args.keywords)) {
       continue;
     }
 
@@ -545,6 +559,9 @@ async function main() {
   }
 
   console.log(`Loaded ${targets.length} pending target(s) from ${args.csv}`);
+  if (args.keywords.length) {
+    console.log(`Title keywords (match any): ${args.keywords.join(', ')}`);
+  }
   if (!args.execute) {
     console.log('Dry run mode. Add --execute to actually remove connections.');
     for (const target of targets.slice(0, 20)) {

@@ -3,6 +3,7 @@ const emailEl = document.getElementById('email');
 const passwordEl = document.getElementById('password');
 const tooltipEl = document.getElementById('tooltip');
 let tooltipTarget = null;
+let latestStatus = null;
 
 function positionTooltip(target) {
   const targetRect = target.getBoundingClientRect();
@@ -112,10 +113,104 @@ function setAnalyticsRunning(running) {
   hint.hidden = !running;
 }
 
+function formatDuration(ms) {
+  const seconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  return `${minutes}m ${seconds % 60}s`;
+}
+
+function formatTime(value) {
+  if (!value) {
+    return '';
+  }
+  return new Date(value).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function textElement(tag, className, text) {
+  const el = document.createElement(tag);
+  if (className) {
+    el.className = className;
+  }
+  el.textContent = text;
+  return el;
+}
+
+function renderJobs(status) {
+  const currentEl = document.getElementById('current-job');
+  const historyEl = document.getElementById('job-history');
+  const summaryEl = document.getElementById('jobs-summary');
+  const job = status.job;
+  const history = Array.isArray(status.history) ? status.history : [];
+
+  currentEl.replaceChildren();
+  if (job) {
+    const elapsed = Date.now() - new Date(job.startedAt).getTime();
+    currentEl.append(
+      textElement('div', 'job-name', job.label || job.name),
+      textElement('p', 'job-detail', job.detail || ''),
+      textElement('p', 'job-stage', job.statusLine || 'Starting…'),
+      textElement(
+        'p',
+        'job-meta',
+        `Started ${formatTime(job.startedAt)} · running for ${formatDuration(elapsed)}`
+      )
+    );
+    summaryEl.className = 'status-pill running';
+    summaryEl.textContent =
+      job.state === 'cancelling' || job.state === 'stopping'
+        ? 'Stopping'
+        : 'Running';
+  } else {
+    currentEl.append(textElement('p', 'empty-state', 'No job is running.'));
+    const latest = history[0];
+    summaryEl.className = `status-pill ${latest ? latest.outcome : 'idle'}`;
+    summaryEl.textContent = latest ? latest.outcome : 'Idle';
+  }
+
+  historyEl.replaceChildren();
+  if (!history.length) {
+    historyEl.append(
+      textElement('li', 'empty-state', 'No completed jobs in this session.')
+    );
+    return;
+  }
+  for (const item of history) {
+    const row = document.createElement('li');
+    row.append(
+      textElement('span', 'job-name', item.label || item.name),
+      textElement(
+        'span',
+        `status-pill ${item.outcome}`,
+        item.outcome || 'finished'
+      ),
+      textElement('span', 'job-detail', item.detail || ''),
+      textElement(
+        'span',
+        'job-stage',
+        item.statusLine || `Process exited with code ${item.exitCode}`
+      ),
+      textElement(
+        'span',
+        'job-meta',
+        `${formatTime(item.startedAt)}–${formatTime(item.endedAt)} · ${formatDuration(item.durationMs)}`
+      )
+    );
+    historyEl.append(row);
+  }
+}
+
 function renderStatus(status) {
   if (!status) {
     return;
   }
+  latestStatus = status;
   document.getElementById('stat-email').textContent = status.email || 'not set';
   document.getElementById('stat-csv').textContent = String(status.connectionsCount ?? 0);
   document.getElementById('stat-sales').textContent = String(status.salesCount ?? 0);
@@ -131,6 +226,7 @@ function renderStatus(status) {
   document.getElementById('start-execute').disabled = busy;
   document.getElementById('cancel').disabled = !busy;
   setAnalyticsRunning(analyticsRunning);
+  renderJobs(status);
 }
 
 async function refreshStatus() {
@@ -183,6 +279,7 @@ function removePayload(execute) {
     confirm: execute,
     csv: document.getElementById('csv-source').value,
     status: document.getElementById('status').value,
+    keywords: document.getElementById('rm-keywords').value,
     limit: document.getElementById('rm-limit').value,
   };
 }
@@ -241,7 +338,11 @@ events.addEventListener('message', (event) => {
       return;
     }
     if (payload.type === 'job') {
-      refreshStatus().catch((err) => appendLog(err.stack || err.message));
+      if (payload.job && latestStatus) {
+        renderStatus({ ...latestStatus, job: payload.job });
+      } else {
+        refreshStatus().catch((err) => appendLog(err.stack || err.message));
+      }
     }
   } catch (err) {
     appendLog(err.stack || err.message);
@@ -249,3 +350,9 @@ events.addEventListener('message', (event) => {
 });
 
 refreshStatus().catch((err) => appendLog(err.stack || err.message));
+
+setInterval(() => {
+  if (latestStatus && latestStatus.job) {
+    renderJobs(latestStatus);
+  }
+}, 1000);

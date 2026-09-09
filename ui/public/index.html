@@ -87,6 +87,9 @@
             <option value="not_target">not_target</option>
           </select>
         </label>
+        <label>Title keywords <span class="hint">(optional, match any)</span>
+          <textarea id="rm-keywords" rows="2" placeholder="recruiter, sales director, business development" data-tooltip="Enter words or phrases separated by commas or new lines. A connection qualifies when its job title contains any keyword, ignoring case. This combines with the selected Status filter."></textarea>
+        </label>
         <label>Limit
           <input id="rm-limit" type="number" min="1" value="20" data-tooltip="Maximum candidates to preview or remove in this run. Start with a small number such as 20 and review the dry run carefully.">
         </label>
@@ -96,6 +99,23 @@
         </div>
       </section>
     </div>
+
+    <section class="jobs-card" aria-labelledby="jobs-title">
+      <div class="jobs-head">
+        <div>
+          <h2 id="jobs-title">Jobs</h2>
+          <p>Live status and the last 10 jobs from this dashboard session.</p>
+        </div>
+        <span id="jobs-summary" class="status-pill idle">Idle</span>
+      </div>
+      <div id="current-job" class="current-job" aria-live="polite">
+        <p class="empty-state">No job is running.</p>
+      </div>
+      <h3>Recent jobs</h3>
+      <ol id="job-history" class="job-history">
+        <li class="empty-state">No completed jobs in this session.</li>
+      </ol>
+    </section>
 
     <section class="log-card">
       <div class="log-head">
