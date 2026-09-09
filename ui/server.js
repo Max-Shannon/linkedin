@@ -382,10 +382,22 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || 'Server error' });
 });
 
+const url = `http://${HOST}:${PORT}/`;
+
 const server = app.listen(PORT, HOST, () => {
-  const url = `http://${HOST}:${PORT}/`;
   console.log(`Dashboard listening on ${url} (localhost only)`);
   openBrowser(url);
+});
+
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log(`Dashboard already running on ${url}`);
+    openBrowser(url);
+    process.exit(0);
+    return;
+  }
+  console.error(err.stack || err.message);
+  process.exit(1);
 });
 
 function openBrowser(url) {
