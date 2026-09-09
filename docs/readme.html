@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to use LinkedIn Connection Cleaner — Executive summary &amp; deeper dive</title>
+  <meta name="description" content="How to download, analyse, and clean your LinkedIn network locally. Executive summary plus a full command reference for download, --months, analytics, scrape, remove, and profile export.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://bhealy.github.io/linkedin/readme.html">
+  <meta property="og:title" content="How to use LinkedIn Connection Cleaner">
+  <meta property="og:description" content="Executive summary and a deeper dive into every command.">
+  <meta property="og:url" content="https://bhealy.github.io/linkedin/readme.html">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+  <div class="bg-canvas" aria-hidden="true">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <header class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">
+        <span class="brand-mark" aria-hidden="true">in</span>
+        Connection Cleaner
+      </a>
+      <nav aria-label="Primary">
+        <ul class="nav-links">
+          <li><a href="index.html">Home</a></li>
+          <li><a href="#exec">Summary</a></li>
+          <li><a href="#dive">Deeper dive</a></li>
+          <li><a href="index.html#faq">FAQ</a></li>
+        </ul>
+      </nav>
+      <a class="nav-cta" href="https://github.com/bhealy/linkedin" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open menu">Menu</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero container page-hero">
+      <div class="hero-badge">How to use it</div>
+      <h1>Readme: run it locally, keep your network yours</h1>
+      <p class="hero-lead">
+        This page is the usage guide. Start with the executive summary if you only need the shape of the workflow.
+        Use the deeper dive when you are ready to run commands.
+      </p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="#exec">Executive summary</a>
+        <a class="btn btn-secondary" href="#dive">Deeper dive</a>
+      </div>
+    </section>
+
+    <section id="exec" class="container">
+      <span class="section-label">Start here</span>
+      <h2 class="section-title">Executive summary</h2>
+      <div class="exec-card">
+        <p>
+          <strong>LinkedIn Connection Cleaner</strong> is a set of Node.js scripts that run on your computer.
+          They log into LinkedIn in a local Chromium window (Puppeteer), export your 1st-degree connections,
+          build a private analytics page, optionally find sales/recruitment contacts, and can bulk-remove
+          connections you no longer want. Nothing is uploaded to this site or any third-party API.
+        </p>
+        <p>
+          LinkedIn does not give you a good bulk-export or bulk-remove UI for a large network.
+          This toolkit pages through your connections list, writes a CSV, and lets you inspect that CSV
+          before you delete anything. Removals default to <em>dry-run</em> until you pass <code>--execute</code>.
+        </p>
+        <div class="exec-points">
+          <article>
+            <h3>Who it is for</h3>
+            <p>People with a large LinkedIn network who want a local CSV, charts, and controlled cleanup — not a hosted SaaS product.</p>
+          </article>
+          <article>
+            <h3>What you get</h3>
+            <p>A <code>connections.csv</code> file, a self-contained <code>connections-analytics.html</code> dashboard, optional classified search results, and optional disconnects.</p>
+          </article>
+          <article>
+            <h3>What stays private</h3>
+            <p>Your password is typed at the terminal, not stored. Session cookies live in <code>.linkedin-session/</code>. CSVs and analytics HTML are gitignored. Do not commit or publish them.</p>
+          </article>
+          <article>
+            <h3>What to expect</h3>
+            <p>Each download run caps at 5,000 <em>new</em> contacts. Requests are delayed to reduce rate limits. Automation still carries risk — start small.</p>
+          </article>
+        </div>
+        <h3 class="exec-flow-title">The default path</h3>
+        <ol class="exec-flow">
+          <li>Install Node.js 18+, clone the repo, <code>npm install</code>, copy <code>.env.example</code> to <code>.env</code>, set <code>LINKEDIN_EMAIL</code>.</li>
+          <li>Run <code>npm run connections:download</code> (repeat until the summary says the list is complete, or use <code>--months N</code> for recent contacts only).</li>
+          <li>Run <code>npm run connections:analytics:open</code> and explore the dashboard locally.</li>
+          <li>Optional: <code>npm run scrape:sales</code> to classify sales/recruitment via people search.</li>
+          <li>Dry-run removals, then execute: <code>npm run connections:remove -- --status spam --limit 20</code> then add <code>--execute</code> when you are sure.</li>
+        </ol>
+        <div class="code-block">
+          <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+          <pre>git clone https://github.com/bhealy/linkedin.git
+cd linkedin
+npm install
+cp .env.example .env
+# edit .env: LINKEDIN_EMAIL=you@example.com
+npm run connections:download
+npm run connections:analytics:open</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="dive" class="container dive-section">
+      <span class="section-label">Reference</span>
+      <h2 class="section-title">Deeper dive</h2>
+      <p class="section-intro">Command-by-command detail: flags, outputs, resume behaviour, and files you should never share.</p>
+
+      <div class="dive-layout">
+        <nav class="dive-toc" aria-label="Deeper dive">
+          <p>On this page</p>
+          <ol>
+            <li><a href="#dive-setup">Install</a></li>
+            <li><a href="#dive-download">Download connections</a></li>
+            <li><a href="#dive-months">Last N months</a></li>
+            <li><a href="#dive-analytics">Analytics</a></li>
+            <li><a href="#dive-scrape">Title scrape</a></li>
+            <li><a href="#dive-remove">Remove</a></li>
+            <li><a href="#dive-profile">Single profile</a></li>
+            <li><a href="#dive-files">Files &amp; privacy</a></li>
+          </ol>
+        </nav>
+
+        <div class="dive-body">
+          <article id="dive-setup">
+            <h3>1. Install</h3>
+            <p>Requires Node.js 18+ and a LinkedIn account. Puppeteer downloads Chromium on <code>npm install</code>.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>git clone https://github.com/bhealy/linkedin.git
+cd linkedin
+npm install
+cp .env.example .env</pre>
+            </div>
+            <p>Put only your login email in <code>.env</code>:</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>LINKEDIN_EMAIL=you@example.com</pre>
+            </div>
+            <p>Optional: set <code>LI_AT</code> to your LinkedIn <code>li_at</code> cookie to skip the password prompt. On first run without that cookie, a browser window opens; complete login (and any checkpoint) there. The session is reused from <code>.linkedin-session/</code>.</p>
+          </article>
+
+          <article id="dive-download">
+            <h3>2. Download your connections</h3>
+            <p>This is the main export. It opens the connections page and paginates LinkedIn’s list <strong>newest first</strong> via the SDUI pagination API. Rows are appended to <code>connections.csv</code> after every batch. Progress is stored in <code>download-connections-state.json</code> so you can stop and continue.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run connections:download
+npm run connections:download:status
+npm run connections:download:fresh
+node download-connections.js --resume
+node download-connections.js --limit 100</pre>
+            </div>
+            <p>Each run fetches up to <strong>5,000 new</strong> contacts (not 5,000 total). Run again until the summary says the list is exhausted. Batches wait a random 1–10 seconds.</p>
+            <table>
+              <thead>
+                <tr><th>CSV column</th><th>Meaning</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>name</code></td><td>Display name</td></tr>
+                <tr><td><code>title</code></td><td>Headline</td></tr>
+                <tr><td><code>profile_url</code></td><td>Profile URL</td></tr>
+                <tr><td><code>vanity_name</code></td><td>Slug used for removals</td></tr>
+                <tr><td><code>connected_on</code></td><td>LinkedIn “Connected on” date</td></tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article id="dive-months">
+            <h3>3. Only the last N months</h3>
+            <p>Because the list is newest first, <code>--months N</code> starts at the top and <strong>stops paging</strong> once a batch is entirely older than today minus N calendar months. That avoids walking your whole archive.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run connections:download -- --fresh --months 6
+npm run connections:download -- --months 3 --limit 5000</pre>
+            </div>
+            <p>Use <code>--fresh --months N</code> when you want a CSV that only contains that window. Without <code>--fresh</code>, older rows already in the CSV are kept. After the window is complete, <code>--resume</code> (without <code>--months</code>) continues into older contacts. Blank dates are not used as a stop signal.</p>
+          </article>
+
+          <article id="dive-analytics">
+            <h3>4. Analytics dashboard</h3>
+            <p>Turns <code>connections.csv</code> into a single local HTML file: growth by month, roles and seniority inferred from headlines, top companies and keywords, weekday patterns, and a searchable table.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run connections:analytics:open
+node generate-connections-analytics.js --input connections.csv --output report.html --open</pre>
+            </div>
+            <p>That HTML embeds your contacts. Open it only on your machine. Do not host it publicly.</p>
+          </article>
+
+          <article id="dive-scrape">
+            <h3>5. Optional: scrape by job title</h3>
+            <p>People search is capped at about 250 hits per query. <code>npm run scrape:sales</code> walks a keyword × geography grid in <code>search-plan.json</code> and classifies each person as <code>sales</code>, <code>recruitment</code>, <code>sales_and_recruitment</code>, or <code>not_target</code>. Output: <code>sales-connections.csv</code>. Skip this if you only want a full export and charts.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run scrape:sales
+npm run scrape:status
+npm run scrape:sales:fresh</pre>
+            </div>
+          </article>
+
+          <article id="dive-remove">
+            <h3>6. Bulk remove</h3>
+            <p>Omit <code>--execute</code> to print who would be removed. Removals are permanent on LinkedIn. Default ignored company names in headlines: Manna and Meili (add more with <code>--ignore-company</code>). Spacing is about 1.2 seconds between removals. Removed vanity names are remembered so later runs skip them.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run connections:remove -- --status spam --limit 20
+npm run connections:remove -- --execute --status spam --limit 20
+npm run connections:remove -- --execute --status sales --limit 50</pre>
+            </div>
+            <p><code>--status spam</code> is sales + recruitment + both. You can also pass a single status or <code>not_target</code>.</p>
+            <table>
+              <thead>
+                <tr><th>Flag</th><th>Description</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>--execute</code></td><td>Actually disconnect (otherwise dry-run)</td></tr>
+                <tr><td><code>--status</code></td><td><code>spam</code>, <code>sales</code>, <code>recruitment</code>, <code>sales_and_recruitment</code>, <code>not_target</code></td></tr>
+                <tr><td><code>--limit</code></td><td>Max people this run</td></tr>
+                <tr><td><code>--ignore-company</code></td><td>Skip headlines that mention this company (repeatable)</td></tr>
+                <tr><td><code>--csv</code></td><td>Different input CSV</td></tr>
+                <tr><td><code>--fresh</code></td><td>Clear removal history</td></tr>
+              </tbody>
+            </table>
+          </article>
+
+          <article id="dive-profile">
+            <h3>7. Archive one profile</h3>
+            <p>Exports a single public profile to JSON plus a self-contained HTML page under <code>profiles/</code> (gitignored). Default visit is experience, education, and skills (~30–45s). <code>--full-details</code> hits every detail sub-page.</p>
+            <div class="code-block">
+              <button type="button" class="copy-btn" aria-label="Copy code">Copy</button>
+              <pre>npm run profile:scrape -- https://www.linkedin.com/in/your-vanity/
+node scrape-profile.js --skip-details
+node scrape-profile.js --full-details
+npm run profile:html:open</pre>
+            </div>
+          </article>
+
+          <article id="dive-files">
+            <h3>8. Files you must not publish</h3>
+            <p>Safe to share: source code, <code>.env.example</code>, this docs site. Never commit or upload:</p>
+            <table>
+              <thead>
+                <tr><th>Path</th><th>Why</th></tr>
+              </thead>
+              <tbody>
+                <tr><td><code>.env</code></td><td>Your email / optional session cookie</td></tr>
+                <tr><td><code>.linkedin-session/</code></td><td>Logged-in browser profile</td></tr>
+                <tr><td><code>connections.csv</code>, <code>sales-connections.csv</code></td><td>Your network</td></tr>
+                <tr><td><code>connections-analytics.html</code></td><td>Embedded contact list</td></tr>
+                <tr><td><code>profiles/</code></td><td>Archived profile dumps</td></tr>
+                <tr><td><code>*-state.json</code>, <code>remove-connections-results.json</code></td><td>Progress and personal IDs</td></tr>
+              </tbody>
+            </table>
+            <div class="callout callout-warn">
+              <span class="callout-icon" aria-hidden="true">⚠️</span>
+              <div>This is unofficial automation against LinkedIn’s website. Pace yourself, dry-run removals, and use it at your own discretion. Rate limits and account restrictions are possible.</div>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>LinkedIn Connection Cleaner — open source, local-first network management.</p>
+      <ul class="footer-links">
+        <li><a href="index.html">Home</a></li>
+        <li><a href="https://github.com/bhealy/linkedin">GitHub</a></li>
+        <li><a href="index.html#faq">FAQ</a></li>
+        <li><a href="https://github.com/bhealy/linkedin/issues">Issues</a></li>
+      </ul>
+    </div>
+  </footer>
+
+  <script src="assets/js/site.js" defer></script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 
 A Node.js tool to download your 1st-degree LinkedIn connections, classify them by job title (sales, recruitment, or neither), and bulk-remove the ones you don't want.
 
-**Documentation site:** [bhealy.github.io/linkedin](https://bhealy.github.io/linkedin/) — interactive setup wizard, FAQ, and full usage guide.
+**Documentation:** [How to use it](https://bhealy.github.io/linkedin/readme.html) (executive summary + deeper dive) · [setup wizard & FAQ](https://bhealy.github.io/linkedin/)
 
 ---
 
