@@ -3,8 +3,8 @@
  * ReConnect™ — the logical conclusion of remove-connections.js.
  *
  * `npm run connections:remove` deletes the people who spam you. This does the
- * opposite: it enrols them in a seven-touch sales cadence and prints, in full,
- * every message it would send.
+ * opposite: it enrols them in a fourteen-day daily meme cadence and prints, in
+ * full, every message it would send.
  *
  * It would send them. It does not send them.
  *
@@ -15,13 +15,13 @@
  * Usage:
  *   node reconnect.js
  *   node reconnect.js --contacts ./my-fixture.json
- *   node reconnect.js --step 4
+ *   node reconnect.js --step 5
  */
 
 const fs = require('fs');
 const path = require('path');
 
-const { CADENCE, buildCampaign } = require('./lib/reconnect-cadence');
+const { CADENCE, buildCampaign, buildMetrics } = require('./lib/reconnect-cadence');
 
 const DEFAULT_CONTACTS = path.join(
   __dirname,
@@ -103,12 +103,21 @@ function main() {
 
   console.log('─'.repeat(78));
   console.log('');
-  console.log(`  ${messages.length} messages rendered.`);
-  console.log('  0 messages sent.');
+  console.log('  MEME FUNNEL');
   console.log('');
-  console.log('  ReConnect™ has no transport layer and never will. The contacts');
-  console.log('  above are invented. This is a joke about sales cadences, and a');
-  console.log('  joke is all it is equipped to be.');
+
+  const metrics = buildMetrics(messages);
+  const width = metrics.reduce((max, m) => Math.max(max, m.label.length), 0);
+  for (const metric of metrics) {
+    const dots = '.'.repeat(Math.max(3, width - metric.label.length + 4));
+    console.log(`    ${metric.label} ${dots} ${metric.value}`);
+  }
+
+  console.log('');
+  console.log('  Every figure below the first is zero, and is zero for the same');
+  console.log('  reason: ReConnect™ has no transport layer and never will. The');
+  console.log('  contacts above are invented. This is a joke about sales cadences,');
+  console.log('  and a joke is all it is equipped to be.');
   console.log('');
 }
 
