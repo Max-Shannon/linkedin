@@ -13,11 +13,12 @@
     "connections:analytics": "node generate-connections-analytics.js",
     "connections:analytics:open": "node generate-connections-analytics.js --open",
     "connections:remove": "node remove-connections.js",
+    "reconnect": "node reconnect.js",
     "profile:scrape": "node scrape-profile.js",
     "profile:html": "node generate-profile-html.js",
     "profile:html:open": "node generate-profile-html.js --open",
     "start": "node ui/server.js",
-    "test": "node test/parse-sdui-connections.test.js && node test/connections-csv.test.js && node test/rolling-backup.test.js && node test/keyword-filter.test.js"
+    "test": "node test/parse-sdui-connections.test.js && node test/connections-csv.test.js && node test/rolling-backup.test.js && node test/keyword-filter.test.js && node test/reconnect-cadence.test.js"
   },
   "keywords": [],
   "author": "",

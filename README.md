@@ -18,6 +18,7 @@ A Node.js tool to download your 1st-degree LinkedIn connections, classify them b
 - Tracks removed profiles so they're skipped on future runs
 - Ignores connections at specified companies (e.g. colleagues)
 - Local web dashboard (`npm start`) on 127.0.0.1 to run download, analytics, and removals without the CLI
+- ReConnect™ (`npm run reconnect`) — prints the seven-touch sales cadence it would inflict on the people you were about to remove, and sends absolutely none of it ([docs](docs/RECONNECT.md))
 
 ---
 
